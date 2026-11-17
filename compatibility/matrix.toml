@@ -1,0 +1,646 @@
+schema = 1
+
+[[scenarios]]
+id = "apple-mail-current"
+client = "Apple Mail"
+version = "current release"
+platform = "macOS"
+workflow = "mail core"
+owner = "protocols/mail"
+protocols = ["autodiscover", "imap", "smtp-submission"]
+source_url = "https://support.apple.com/guide/mail/welcome/mac"
+required = true
+
+[[scenarios]]
+id = "apple-mobile-current"
+client = "Apple Mail, Calendar, and Contacts"
+version = "current release"
+platform = "iOS/iPadOS"
+workflow = "mobile groupware"
+owner = "protocols/mobile"
+protocols = ["eas", "caldav", "carddav"]
+source_url = "https://support.apple.com/guide/iphone/set-up-mail-contacts-and-calendar-accounts-iph44d1ae58a/ios"
+required = true
+
+[[scenarios]]
+id = "davx5-4"
+client = "DAVx⁵"
+version = "4.x"
+platform = "Android"
+workflow = "calendar and contacts"
+owner = "protocols/dav"
+protocols = ["caldav", "carddav"]
+source_url = "https://www.davx5.com/manual/technical_information.html"
+required = true
+
+[[scenarios]]
+id = "go-imap-v2-beta8"
+client = "go-imap/v2"
+version = "2.0.0-beta.8"
+platform = "Linux"
+workflow = "mail protocol regression"
+owner = "protocols/imap"
+protocols = ["imap"]
+source_url = "https://github.com/emersion/go-imap/releases/tag/v2.0.0-beta.8"
+
+[scenarios.runner]
+kind = "go-test"
+package = "./pkg/imap"
+test_regex = "^TestIntegration_(Login|ListMailboxes|AppendAndFetch|Idle|Move|FullSessionFlow)$"
+
+[[scenarios]]
+id = "go-smtp-024"
+client = "go-smtp"
+version = "0.24.0"
+platform = "Linux"
+workflow = "message submission regression"
+owner = "protocols/smtp"
+protocols = ["smtp-submission"]
+source_url = "https://github.com/emersion/go-smtp/releases/tag/v0.24.0"
+
+[scenarios.runner]
+kind = "go-test"
+package = "./pkg/smtp"
+test_regex = "^TestIntegration_(STARTTLS|AUTH_PLAIN|Full_session_flow)$"
+
+[[scenarios]]
+id = "go-webdav-carddav-070"
+client = "go-webdav/carddav"
+version = "0.7.0"
+platform = "Linux"
+workflow = "contacts protocol regression"
+owner = "protocols/dav"
+protocols = ["carddav"]
+source_url = "https://github.com/emersion/go-webdav/releases/tag/v0.7.0"
+
+[scenarios.runner]
+kind = "go-test"
+package = "./pkg/caldav"
+test_regex = "^TestIntegration_CardDAV_(PutAndGetAddressObject|QueryAddressBook|MultiGetAddressBook|MultipleAddressbooks|vCard3And4)$"
+
+[[scenarios]]
+id = "go-webdav-caldav-070"
+client = "go-webdav/caldav"
+version = "0.7.0"
+platform = "Linux"
+workflow = "calendar protocol regression"
+owner = "protocols/dav"
+protocols = ["caldav"]
+source_url = "https://github.com/emersion/go-webdav/releases/tag/v0.7.0"
+
+[scenarios.runner]
+kind = "go-test"
+package = "./pkg/caldav"
+test_regex = "^TestIntegration_(PutAndGetCalendarObject|QueryCalendar|FindCalendars|MultiGetCalendar)$"
+
+[[scenarios]]
+id = "outlook-2024"
+client = "Microsoft Outlook 2024"
+version = "2024"
+platform = "Windows"
+workflow = "Exchange and Internet mail"
+owner = "protocols/exchange"
+protocols = ["autodiscover", "ews", "imap", "smtp-submission"]
+source_url = "https://learn.microsoft.com/en-us/lifecycle/products/outlook-2024"
+required = true
+
+[[scenarios]]
+id = "roundcube-172"
+client = "Roundcube Webmail"
+version = "1.7.2"
+platform = "Linux/PHP"
+workflow = "mail core"
+owner = "protocols/imap"
+protocols = ["imap", "smtp-submission"]
+source_url = "https://roundcube.net/news/2026/07/05/security-updates-1.6.17-and-1.7.2"
+required = true
+
+[scenarios.runner]
+kind = "go-test"
+package = "./pkg/imap"
+test_regex = "^TestRoundcubeStyleMailboxTranscript$"
+
+[[scenarios]]
+id = "thunderbird-153-esr"
+client = "Thunderbird Desktop"
+version = "153.1.0esr"
+platform = "Linux"
+workflow = "mail core"
+owner = "protocols/imap"
+protocols = ["autodiscover", "imap", "smtp-submission"]
+source_url = "https://www.thunderbird.net/en-US/thunderbird/releases/"
+required = true
+
+[scenarios.runner]
+kind = "thunderbird"
+
+[[scenarios]]
+id = "offlineimap-800"
+client = "OfflineIMAP"
+version = "8.0.0"
+platform = "Linux"
+workflow = "mail synchronization to Maildir"
+owner = "protocols/imap"
+protocols = ["imap"]
+source_url = "https://github.com/OfflineIMAP/offlineimap3/releases/tag/v8.0.0"
+
+[scenarios.runner]
+kind = "external"
+
+[[scenarios]]
+id = "vdirsyncer-0211"
+client = "vdirsyncer"
+version = "0.21.0"
+platform = "Linux"
+workflow = "calendar and contacts synchronization"
+owner = "protocols/dav"
+protocols = ["caldav", "carddav"]
+source_url = "https://pypi.org/project/vdirsyncer/0.21.0/"
+
+[scenarios.runner]
+kind = "external"
+
+[[scenarios]]
+id = "swaks-develop-8a05259"
+client = "swaks"
+version = "develop-8a05259830"
+platform = "Linux"
+workflow = "SMTP delivery and authenticated submission"
+owner = "protocols/smtp"
+protocols = ["smtp-submission"]
+source_url = "https://github.com/jetmore/swaks/commit/8a05259830"
+
+[scenarios.runner]
+kind = "external"
+
+[[scenarios]]
+id = "python-stdlib-312"
+client = "Python imaplib, smtplib, and poplib"
+version = "3.12.13"
+platform = "Linux"
+workflow = "mail library sessions over STARTTLS and implicit TLS"
+owner = "protocols/mail"
+protocols = ["imap", "smtp-submission", "pop3"]
+source_url = "https://docs.python.org/3.12/library/imaplib.html"
+
+[scenarios.runner]
+kind = "external"
+
+[[scenarios]]
+id = "curl-8-23"
+client = "curl"
+version = "8.23.0"
+platform = "Linux"
+workflow = "IMAP, POP3, and SMTP URL transfers"
+owner = "protocols/mail"
+protocols = ["imap", "smtp-submission", "pop3"]
+source_url = "https://curl.se/changes.html"
+
+[scenarios.runner]
+kind = "external"
+
+[[scenarios]]
+id = "imap-client-transcripts"
+client = "Thunderbird, Apple Mail, Outlook, K-9, Gmail app, Evolution (command replay)"
+version = "2026-10 transcripts"
+platform = "Linux"
+workflow = "documented IMAP command sequences of desktop and mobile clients"
+owner = "protocols/imap"
+protocols = ["imap"]
+source_url = "https://www.rfc-editor.org/rfc/rfc9051"
+
+[scenarios.runner]
+kind = "go-test"
+package = "./pkg/imap"
+test_regex = "^Test(ListEmptyPatternReturnsDelimiter|SelectAdvertisesSeenFlag|CreateBuildsIntermediateHierarchy|StatusAnswersRecentAndHighestModSeq|FetchChangedSinceAndVanished|UIDFetchAlwaysReturnsUID|ConditionalStoreKeepsFlags|CopyPreservesFlags|CommandsAcceptLiterals|NoopReportsChangesFromOtherSessions|ExpungeResponsesFollowNegotiatedExtensions|IdleEndsUnderCompression|SearchSentDatesUseDateHeader|SearchAcceptsSequenceSetKeys)$"
+
+[[scenarios]]
+id = "python-caldav-360"
+client = "python caldav (caldav-server-tester)"
+version = "3.6.0"
+platform = "Linux"
+workflow = "CalDAV feature and scheduling probe"
+owner = "protocols/dav"
+protocols = ["caldav"]
+source_url = "https://pypi.org/project/caldav/3.6.0/"
+
+[scenarios.runner]
+kind = "external"
+
+[[scenarios]]
+id = "dav-client-transcripts-2026-10"
+client = "Apple Calendar/Contacts, Thunderbird, DAVx⁵, Evolution request sequences"
+version = "2026-10 transcripts"
+platform = "Linux"
+workflow = "calendar and contacts client request sequences"
+owner = "protocols/dav"
+protocols = ["caldav", "carddav"]
+source_url = "https://www.davx5.com/manual/technical_information.html"
+
+[scenarios.runner]
+kind = "go-test"
+package = "./pkg/caldav"
+test_regex = "^TestInterop"
+
+[[scenarios]]
+id = "jmapc-0-4"
+client = "jmapc (Python JMAP client)"
+version = "0.4.0"
+platform = "Linux"
+workflow = "JMAP mail: session, recent threads, send with submission, push"
+owner = "protocols/jmap"
+protocols = ["jmap"]
+source_url = "https://github.com/smkent/jmapc"
+
+[scenarios.runner]
+kind = "external"
+
+[[scenarios]]
+id = "jmap-client-sequences"
+client = "Fastmail web, Ltt.rs/jmap-mua, jmap-client (JS/Rust), Mailtemi (request replay)"
+version = "2026-10 sequences"
+platform = "Linux"
+workflow = "RFC 8620/8621 request sequences of JMAP mail clients"
+owner = "protocols/jmap"
+protocols = ["jmap"]
+source_url = "https://www.rfc-editor.org/rfc/rfc8621"
+
+[scenarios.runner]
+kind = "go-test"
+package = "./pkg/jmap"
+test_regex = "^Test(SessionPlacesMailLimitsInAccountCapabilities|RequestLevelErrors|ResultReferenceWildcardFlattensAndCreationIDs|EmailGetPropertiesHeaderFormsAndBodyStructure|BodyListsFollowRFC8621Algorithm|EmailSetCreatesMIMEAndAppliesPatchPaths|EmailQueryPagingSortingAndThreads|EmailSubmissionOnSuccessUpdateEmailIsImplicitEmailSet|MailboxQueryFiltersAndSetOrdersParents|DownloadDecodesPartsAndHonoursType|IdentityGetWithoutAddressesIsEmpty|PushSubscriptionVerifiesAndSendsEncryptedStateChanges)$"
+
+[[scenarios]]
+id = "eas-client-transcripts"
+client = "iOS/macOS Mail, Samsung Email, Gmail, Nine, Windows Mail (ActiveSync command replay)"
+version = "2026-10 transcripts"
+platform = "Linux"
+workflow = "documented ActiveSync request sequences: provisioning, folder and item sync, push, compose, calendar, contacts, tasks"
+owner = "protocols/mobile"
+protocols = ["eas"]
+source_url = "https://learn.microsoft.com/en-us/openspecs/exchange_server_protocols/ms-ascmd/"
+
+[scenarios.runner]
+kind = "go-test"
+package = "./pkg/eas"
+test_regex = "^Test(WBXMLSettingsTokensMatchMSASWBXML|WBXMLCalendarTimeZoneName|Base64RequestLineFromWindowsMail|ProvisionTwoPhaseAndPolicyKeyEnforcement|RemoteWipeRefusesCommandsUntilWiped|FolderSyncPublishesOnlyActiveSyncClasses|FolderCreateIsNotEchoedAndValidatesKey|FolderSyncRetryWithPreviousKey|MoveItemsStatusCodes|GetItemEstimateResponseShape|PingLongPollsUntilChange|SettingsUserInformationAndOutOfOffice|SearchAndResolveRecipientsUseTheDirectory|SyncHonorsBodyPreference|ItemOperationsFetchesAttachmentAndFullBody|SyncClientChangesAreAppliedAndNotEchoed|SyncConflictServerWins|SyncRetryWithPreviousKeyReplays|EmptySyncRepeatsCachedRequest|SmartReplyAppendsOriginalMessage|SmartForwardCarriesOriginalAttachments|SendMailProtocol121RawMIME|MeetingRequestMailCarriesMeetingRequest|Protocol16DraftSaveAndSend|SyncAddRecurringMeetingFromClient|CalendarItemRendersRecurrenceExceptionsAndAttendees|AllDayEventAndDeletedOccurrenceFromClient|TimeZoneRulesMatchWindowsDefinition|ContactRoundTrip|TaskRoundTrip|MigrationClientReadsEveryClass|MailArrivingDuringPrimingIsSentOnce|ReplayedDraftSendIsNotSentTwice|ReplayedSyncStillSuppressesOwnChanges|OwnChangeDoesNotHideLaterDeletion|LaterCollectionFailureKeepsEarlierCommands|PendingWipeSurvivesPartnershipRemoval)$"
+
+[[scenarios]]
+id = "ews-client-transcripts"
+client = "Mac Mail and Outlook for Mac (EWS command replay)"
+version = "2026-10 transcripts"
+platform = "Linux"
+workflow = "batched distinguished-folder discovery, hierarchy and item sync, read state, send, recipient resolution, free/busy, calendar items with recurrence and CalendarView, meeting responses, contacts, tasks, out-of-office, attachments, pull and streaming notifications"
+owner = "protocols/exchange"
+protocols = ["ews"]
+source_url = "https://learn.microsoft.com/en-us/exchange/client-developer/web-service-reference/ews-operations-in-exchange"
+
+[scenarios.runner]
+kind = "go-test"
+package = "./pkg/ews"
+test_regex = "^Test(GetFolderAnswersEachDistinguishedFolder|FolderHierarchyHidesInternalFolders|UpdateItemMarksReadInBatch|DeleteItemReportsMissingItemPerMessage|GetUserAvailabilityRendersLocalFreeBusy|ResolveNamesSearchesDirectoryAndContacts|SyncFolderItemsPagesAndReportsDeletion|CreateItemSendDispositionSubmitsMIME|UpdateItemPreservesMIMEAndReturnsChangeKey|CreateItemStoresOutlookMeetingAsICalendar|FindItemCalendarViewExpandsAndPagesOccurrences|OccurrencesUpdateAndDeleteThroughOccurrenceItemID|GetItemPresentsInvitationAndAcceptItemAnswersIt|Exchange2007MeetingTimeZoneAndAllDayEvents|ContactsRoundTripIndexedFieldsAndPhoto|TasksRoundTripStatusAndDates|SyncFolderItemsPresentsCalendarAndContactTypes|UserOofSettingsMapToVacationResponder|MessageAttachmentsCreateGetAndDelete|PullSubscriptionReportsMailboxChanges|SubscriptionErrors|StreamingSubscriptionDeliversOnCommit)$"
+
+[[scenarios]]
+id = "exchange-autodiscover-transcripts"
+client = "ActiveSync clients, Outlook mobile and Windows (Autodiscover replay)"
+version = "2026-10 transcripts"
+platform = "Linux"
+workflow = "POX mobilesync and Outlook schemas, Autodiscover v2 JSON"
+owner = "protocols/exchange"
+protocols = ["autodiscover"]
+source_url = "https://learn.microsoft.com/en-us/openspecs/exchange_server_protocols/ms-oxdisco/"
+
+[scenarios.runner]
+kind = "go-test"
+package = "./pkg/autodiscover"
+test_regex = "^Test(MobileSyncAutodiscover|AutodiscoverJSON|MicrosoftAutodiscoverSuccess)$"
+
+[[results]]
+scenario_id = "apple-mail-current"
+status = "pending"
+evidence = "manual"
+limitations = ["No current macOS runner is available; exact Mail build, account discovery, IMAP/SMTP authentication, folder operations, search, send, and IDLE remain unverified."]
+
+[[results]]
+scenario_id = "apple-mobile-current"
+status = "pending"
+evidence = "manual"
+limitations = ["No physical iOS/iPadOS device run is retained; Exchange ActiveSync provisioning and push, CalDAV, and CardDAV remain unverified in Apple applications."]
+
+[[results]]
+scenario_id = "davx5-4"
+status = "pending"
+evidence = "manual"
+limitations = ["No Android device or emulator run is retained; DAVx⁵'s documented request sequences (unauthenticated OPTIONS, PROPFIND discovery, home-set listing, sync-collection with getetag, multiget, If-Match writes) are replayed by the dav-client-transcripts scenario, but contact photos, conflicts, and the app's own behavior remain unverified in DAVx⁵."]
+
+[[results]]
+scenario_id = "go-imap-v2-beta8"
+status = "pass"
+evidence = "protocol-library"
+client_version = "2.0.0-beta.8"
+platform = "Linux amd64"
+tested_at = "2026-08-19"
+tested_revision = "4113be1"
+assertions = ["authentication, mailbox listing, append/fetch, IDLE, move, and a complete session pass through the published go-imap/v2 client"]
+limitations = ["A protocol-library pass does not prove rendering, account setup, offline caching, or behavior of a desktop mail application."]
+
+[[results]]
+scenario_id = "go-smtp-024"
+status = "pass"
+evidence = "protocol-library"
+client_version = "0.24.0"
+platform = "Linux amd64"
+tested_at = "2026-08-19"
+tested_revision = "4113be1"
+assertions = ["STARTTLS, AUTH PLAIN, and authenticated full-session message submission pass through the published go-smtp client"]
+limitations = ["A protocol-library pass does not cover application identity selection, composer behavior, certificate prompts, or OAuth setup."]
+
+[[results]]
+scenario_id = "go-webdav-carddav-070"
+status = "pass"
+evidence = "protocol-library"
+client_version = "0.7.0"
+platform = "Linux amd64"
+tested_at = "2026-08-19"
+tested_revision = "4113be1"
+assertions = ["address-object CRUD, address-book query and multiget, multiple collections, and vCard 3/4 pass through go-webdav/carddav"]
+limitations = ["A protocol-library pass does not prove mobile background sync, UI field mapping, conflict prompts, or vendor-specific discovery."]
+
+[[results]]
+scenario_id = "go-webdav-caldav-070"
+status = "pass"
+evidence = "protocol-library"
+client_version = "0.7.0"
+platform = "Linux amd64"
+tested_at = "2026-08-19"
+tested_revision = "4113be1"
+assertions = ["calendar discovery, object CRUD, calendar-query, and multiget pass through go-webdav/caldav"]
+limitations = ["A protocol-library pass does not prove vendor scheduling, reminders, timezone rendering, background sync, or conflict UI."]
+
+[[results]]
+scenario_id = "outlook-2024"
+status = "pending"
+evidence = "manual"
+limitations = ["No licensed Windows Outlook runner is available; Outlook 2024 does not provide a complete Veksel path through EWS alone, and MAPI/HTTP is not implemented."]
+
+[[results]]
+scenario_id = "roundcube-172"
+status = "limited"
+evidence = "modeled-transcript"
+client_version = "1.7.2"
+platform = "Linux amd64"
+tested_at = "2026-08-19"
+tested_revision = "4113be1"
+assertions = ["a Roundcube-shaped IMAP sequence for LIST/LSUB, STATUS, SELECT, ESEARCH, SORT, and header FETCH passes"]
+limitations = ["Roundcube itself and its PHP IMAP stack were not executed; SMTP submission, MIME rendering, ACL UI, search variants, and folder mutations remain real-client gaps."]
+
+[[results]]
+scenario_id = "thunderbird-153-esr"
+status = "limited"
+evidence = "real-client"
+client_version = "153.1.0esr"
+platform = "Linux amd64"
+tested_at = "2026-08-19"
+tested_revision = "129b8c4"
+assertions = ["the official Thunderbird Desktop binary starts with an isolated profile and authenticates to a disposable Veksel account", "Thunderbird negotiates CAPABILITY, NAMESPACE, COMPRESS DEFLATE, and ID, lists folders, selects Inbox, and issues UID FETCH for a seeded message", "the native workflow uses FolderSpace authorization and retains only normalized command names, never credentials or item content"]
+limitations = ["This retained native run covers IMAP account use and message retrieval only; autoconfig, stored credentials, SMTP submission, MIME rendering, offline sync, search, and folder mutations remain unverified."]
+
+[[results]]
+scenario_id = "offlineimap-800"
+status = "limited"
+evidence = "real-client"
+client_version = "8.0.0"
+platform = "Linux amd64"
+tested_at = "2026-10-22"
+tested_revision = "6700b75"
+assertions = [
+  "OfflineIMAP 8.0.0 (imaplib2 3.06, Python 3.12.13, OpenSSL 3.5.6) synchronized a Veksel mailbox over IMAP with STARTTLS and a self-signed certificate: `offlineimap.py -c offlineimaprc` with a Maildir local repository, remote `ssl = no`, `starttls = yes`, and `sslcacertfile` set to the certificate; messages were seeded by SMTP delivery",
+  "pass: first full sync created all folders (INBOX, Drafts, Sent, Trash, Junk, Archive) and downloaded 5 seeded messages",
+  "pass: incremental sync downloaded 5 further messages",
+  "pass: client-to-server flag change (\\Seen, \\Flagged) and server-to-client flag change (\\Answered, \\Seen) round-tripped",
+  "pass: client-side deletion and server-side deletion with expunge each propagated",
+  "pass: a Maildir message created locally was uploaded with APPEND, and a locally created Maildir folder became an IMAP mailbox",
+  "pass: a no-change sync was idempotent",
+  "fixed during this run: the generic 10 commands per second IMAP limiter disconnected the first sync with BYE; the per-IP login limiter counted successful logins and refused later connections; STORE upper-cased flags, so \\Seen was stored as \\SEEN and keywords lost their case",
+  "fixed 2026-10-22: the intermittent stall after STARTTLS (client waiting for CAPABILITY, server idle in a TLS read) was triggered by the TLS 1.3 session ticket Go sends in the server's first flight; imaplib2 processes it in its reader thread while its writer thread sends CAPABILITY on the same OpenSSL connection, and the command never reaches the server. With tickets 25 of 300 imaplib2 STARTTLS sessions hung, with IMAP session tickets disabled 0 of 300 on the same build, then 0 of 400 on the fixed build",
+  "pass: 50 consecutive OfflineIMAP syncs ran back to back without stalls or connection refusals on the fixed build (previously runs needed a 3 second gap to stay under the per-IP connection limiter)",
+]
+limitations = [
+  "OfflineIMAP 8.0.0 does not start on Python 3.12 unpatched; the run used the v8.0.0 source tree with three client-side compatibility edits (SafeConfigParser alias, removal of the unused imp import, accepting sqlite threadsafety 3), which do not alter protocol behavior",
+  "The STARTTLS stall is an imaplib2 threading defect (concurrent SSL reads and writes on one OpenSSL connection); Veksel avoids triggering it by not issuing IMAP session tickets, but other post-handshake TLS messages could still expose it",
+  "Implicit-TLS (port 993 style) could not be exercised because OfflineIMAP 8.0.0 fails with an internal 'int object is not subscriptable' error on Python 3.12; IDLE, QRESYNC/CONDSTORE, and large mailboxes were not tested",
+]
+
+[[results]]
+scenario_id = "vdirsyncer-0211"
+status = "pass"
+evidence = "real-client"
+client_version = "0.21.0"
+platform = "Linux amd64"
+tested_at = "2026-10-23"
+tested_revision = "ecf9871"
+assertions = [
+  "vdirsyncer 0.21.0 (Python 3.13) synced CalDAV and CardDAV with a filesystem storage per `vdirsyncer discover` and `vdirsyncer sync`; the storage URL was the bare host `http://127.0.0.1:PORT/` with HTTP Basic credentials, so discovery used /.well-known/caldav and /.well-known/carddav, current-user-principal, and the home sets",
+  "pass (2026-10-23): discovery found every calendar (including a shared and a non-ASCII `Kalender æøå` collection) and address book; local create, server create (raw PUT), local modification uploaded with If-Match and the ETag from the PUT reply, server deletion, local deletion, and an idempotent repeat sync all propagated for events and vCards",
+  "fixed 2026-10-21: addressbook-multiget (the RFC 6352 report name) was refused with 400; calendar-multiget responses omitted getetag; /.well-known/caldav and /.well-known/carddav, PROPFIND on /dav/, current-user-principal, calendar-home-set, and addressbook-home-set were missing, so only a URL naming the account root worked",
+]
+limitations = [
+  "vdirsyncer does not use sync-collection, calendar-query, or free-busy reports, recurrence expansion, attachments, scheduling (iTIP), contact photos, sharing, or collection creation; those are covered by the python caldav probe and the client request transcripts",
+  "Run over plain HTTP on loopback; HTTPS, OAuth, and application passwords were not exercised; vdirsyncer's `Deleting an item with no etag` warning is its own inverted log condition (the DELETE carries If-Match)",
+]
+
+[[results]]
+scenario_id = "swaks-develop-8a05259"
+status = "pass"
+evidence = "real-client"
+client_version = "develop-8a05259830"
+platform = "Linux amd64"
+tested_at = "2026-10-23"
+tested_revision = "01909f7"
+assertions = [
+  "swaks (develop branch script at commit 8a05259830, Perl 5.44, Net::SSLeay 1.94, IO::Socket::SSL 2.089) exercised the inbound SMTP listener and the submission listener",
+  "pass (2026-10-23): implicit-TLS submission (`-tlsc --auth LOGIN`, port 465 style) and pipelined STARTTLS submission (`-tls --auth PLAIN --pipeline`) delivered locally; AUTH on a cleartext submission session is not offered",
+  "pass: inbound delivery to a local mailbox (`swaks --server HOST:PORT --from sender@remote.example --to user@local.test`) was accepted and appeared over IMAP; an unknown local recipient was refused with 550 5.0.0 and an unhosted recipient on the inbound port was refused with 550",
+  "pass: submission refuses unauthenticated mail with 530 5.7.0 and does not advertise AUTH before STARTTLS",
+  "pass: submission with `-tls --auth PLAIN` and `-tls --auth LOGIN` after STARTTLS (self-signed certificate) authenticated with 235 and delivered a message to another local account; wrong password returned 535 5.7.8",
+  "pass: authenticating as one account while using another account's address as the sender is refused at DATA with 550 5.7.1",
+]
+limitations = [
+  "Outbound delivery to external domains, DKIM signing, and OAuth were not exercised",
+  "Tested with a self-signed certificate that swaks does not verify by default",
+]
+
+[[results]]
+scenario_id = "python-stdlib-312"
+status = "pass"
+evidence = "protocol-library"
+client_version = "3.12.13"
+platform = "Linux amd64"
+tested_at = "2026-10-23"
+tested_revision = "01909f7"
+assertions = [
+  "imaplib over STARTTLS (port 143 style) and implicit TLS: LOGINDISABLED before STARTTLS, LOGIN, LIST, CREATE of a modified UTF-7 hierarchy, SELECT, APPEND with flags and date, SEARCH, UID SEARCH, FETCH, STORE, COPY with COPYUID, NOOP, STATUS, read-only EXAMINE",
+  "smtplib on submission (STARTTLS) and implicit TLS: AUTH PLAIN and LOGIN, one message to 30 recipients without PIPELINING, eight messages in one session, BODY=8BITMIME and SMTPUTF8",
+  "poplib over implicit TLS: CAPA, USER/PASS, STAT, UIDL",
+  "fixed during this run: smtplib was cut off with 421 after about 20 commands (30 recipients, or a seventh message) by the generic command burst limit",
+]
+
+[[results]]
+scenario_id = "curl-8-23"
+status = "pass"
+evidence = "real-client"
+client_version = "8.23.0"
+platform = "Linux amd64"
+tested_at = "2026-10-23"
+tested_revision = "01909f7"
+assertions = [
+  "imaps:// section fetch by UID, imap:// with --ssl-reqd mailbox listing and a custom UID SEARCH command",
+  "pop3s:// LIST and pop3:// with --ssl-reqd RETR and UIDL",
+  "smtp:// with --ssl-reqd and smtps:// authenticated submission delivered locally; a MAIL FROM of another account's address was refused",
+]
+limitations = ["curl exercises single-command transfers; IDLE, flags, and multi-command synchronization are covered by the other scenarios"]
+
+[[results]]
+scenario_id = "imap-client-transcripts"
+status = "pass"
+evidence = "modeled-transcript"
+client_version = "2026-10 transcripts"
+platform = "Linux amd64"
+tested_at = "2026-10-23"
+tested_revision = "01909f7"
+assertions = [
+  "replayed on a live server: Thunderbird (CAPABILITY, AUTHENTICATE PLAIN, ID, NAMESPACE, LIST \"\" \"\", LIST (SUBSCRIBED) RETURN (SPECIAL-USE), LSUB, SELECT (CONDSTORE), header UID FETCH, IDLE, STATUS ... RECENT HIGHESTMODSEQ, UID STORE/COPY/EXPUNGE, APPEND), Apple Mail (ID, LIST \"\" \"\", UID FETCH (CHANGEDSINCE), UID SEARCH 1:* NOT DELETED, partial BODY.PEEK, MYRIGHTS, GETQUOTAROOT, IDLE), Outlook (NOOP polling, UID FETCH BODY.PEEK[], UID STORE .SILENT, CREATE/APPEND, CHECK), K-9 (SASL-IR, EXAMINE, UID MOVE, IDLE), Gmail app (ENVELOPE/BODYSTRUCTURE, partial TEXT) and Evolution (ENABLE QRESYNC CONDSTORE, LIST RETURN, UID FETCH (CHANGEDSINCE n VANISHED)) all completed with OK",
+  "the Go regression tests in this scenario replay each exchange that failed before the fix",
+  "fixed during this run: LIST \"\" \"\" returned no delimiter; FLAGS lacked \\Seen; CREATE \"a/b/c\" created \"c\" at the top level; STATUS refused RECENT and HIGHESTMODSEQ; FETCH (CHANGEDSINCE) and VANISHED failed; STORE (UNCHANGEDSINCE) wiped all flags; UID FETCH omitted UID; COPY dropped flags; SEARCH refused sequence-set keys; LOGIN and other commands rejected literals; NOOP never reported new mail and expunges from other sessions renumbered messages silently; IDLE hung under COMPRESS=DEFLATE; UID EXPUNGE answered \"* n EXPUNGE uid\"; SORT compared raw header text",
+]
+[[results]]
+scenario_id = "python-caldav-360"
+status = "limited"
+evidence = "real-client"
+client_version = "3.6.0"
+platform = "Linux amd64"
+tested_at = "2026-10-23"
+tested_revision = "ecf9871"
+assertions = [
+  "caldav-server-tester 1.6.0 on python caldav 3.6.0 (Python 3.13) probed a scratch server with three accounts over HTTP Basic, against both `http://127.0.0.1:PORT/` and `/dav/`",
+  "pass: discovery from the bare host, current-user-principal, MKCALENDAR with display name and component set, stable URLs, PROPFIND (prop, allprop, Depth 1), calendar-color and calendar-order, event/task/recurrence/exception/timezone save-load, If-Match and If-None-Match, comp-type, time-range (event, task, open-ended, DURATION), text and category search, is-not-defined, recurrence expand with exceptions, sync-token (initial, incremental, deletions, invalid token 403), free-busy-query, implicit scheduling to a second local account, outbox free-busy, principal search for self",
+  "fixed during this run: PROPFIND / answered 405; MKCALENDAR answered 405; PROPPATCH stored nothing; If-Match and If-None-Match were ignored; comp-filters other than VEVENT/VTODO, prop-filters, and open time ranges were ignored; recurring events came back as one response per occurrence; invalid sync tokens answered 409; a PROPPATCH with a named color wedged the durable folder journal so the next start failed",
+]
+limitations = [
+  "unsupported by design or not yet implemented: VJOURNAL collections (refused with supported-calendar-component), mixed VEVENT+VTODO calendars, the no-uid-conflict precondition, schedule-inbox delivery (invitations are auto-scheduled into the calendar), Schedule-Tag, VTODO recurrence expansion, VALARM time ranges, truncated initial sync (an initial snapshot beyond DAV:limit is refused with 507), named calendar colors, listing all principals",
+  "principal-property-search sent to the bare host `/` reaches the web application (405); sent to `/dav/` it is answered",
+]
+
+[[results]]
+scenario_id = "dav-client-transcripts-2026-10"
+status = "limited"
+evidence = "modeled-transcript"
+client_version = "2026-10 transcripts"
+platform = "Linux amd64"
+tested_at = "2026-10-23"
+tested_revision = "ecf9871"
+assertions = [
+  "pkg/caldav TestInterop* replay the request sequences of Apple Calendar/Contacts (principal probe, home Depth 1 with getctag, MKCALENDAR with color/order, PROPPATCH, MOVE between calendars, principal-property-search, quota), Thunderbird (VTODO calendar-query, PARTSTAT change, address book rename), DAVx⁵ (multistatus content type, sync-collection, conditional writes), and Evolution (prop-filter searches, RFC 6352 addressbook-query), plus non-ASCII names, charsets, shared-calendar sync, and attendee replies",
+  "cmd/veksel TestDAVEntryDiscovery covers PROPFIND / redirection, unauthenticated OPTIONS, and the UTF-8 Basic challenge",
+]
+limitations = [
+  "Modeled transcripts, not the applications: Apple, Thunderbird, DAVx⁵, Evolution, and GNOME Online Accounts were not executed; shared calendars are reachable by collection URL only (they are not listed in the sharee's home and calendar-proxy delegation is not implemented)",
+]
+
+[[results]]
+scenario_id = "jmapc-0-4"
+status = "pass"
+evidence = "protocol-library"
+client_version = "0.4.0"
+platform = "Linux amd64"
+tested_at = "2026-10-23"
+tested_revision = "27981f9"
+assertions = [
+  "jmapc 0.4.0 (isolated venv, Python 3.12) parsed the session and core limits, ran Core/echo, the library's recent-threads chain (Mailbox/query role inbox, Email/query collapseThreads with a nested #inMailbox reference, Email/get, Thread/get on /list/*/threadId, Email/get on /list/*/emailIds), Identity/get, Mailbox/get, the send-email sequence (Email/set create with bodyValues and headers, EmailSubmission/set with an envelope and onSuccessDestroyEmail, answered by an implicit Email/set), SearchSnippet/get, Email/changes, Mailbox/changes, and an EventSource StateChange",
+  "fixed during this run: references nested in a filter were rejected as unsupportedFilter, so the recent-threads chain failed at its second call",
+]
+limitations = ["jmapc only speaks https; the run rewrote its https:// session URL to the plain-HTTP test listener"]
+
+[[results]]
+scenario_id = "jmap-client-sequences"
+status = "pass"
+evidence = "modeled-transcript"
+client_version = "2026-10 sequences"
+platform = "Linux amd64"
+tested_at = "2026-10-23"
+tested_revision = "27981f9"
+assertions = [
+  "replayed on a live server with curl and Python (about 160 assertions): session fields and URL templates, request errors (notJSON, notRequest, unknownCapability, limit with maxCallsInRequest/maxSizeRequest), method errors (unknownMethod, accountNotFound, invalidArguments, stateMismatch, anchorNotFound, unsupportedFilter, unsupportedSort, cannotCalculateChanges), result references with /*/ paths, /get with ids null and properties, /changes with maxChanges, /set with creation ids across calls and patch paths, /query filters, sorts, anchors and collapseThreads, Email/queryChanges, Email/import, Email/parse, upload/download, EmailSubmission with onSuccessUpdateEmail, Identity, VacationResponse, SearchSnippet, Thread/get, header:* forms, bodyStructure and body values",
+  "the Go regression tests in this scenario replay each exchange that failed before the fix",
+  "fixed during this run: the result-reference \"*\" path never mapped over arrays; Email/get ignored properties, offered no header: forms or bodyStructure, did not decode quoted-printable/base64 or charsets, and gave HTML-only mail an empty textBody; Email/set ignored patch paths, wrote raw RFC 3339 Date headers, and could not attach blobs; isAscending defaulted to false; collapseThreads, anchors and negative positions were ignored; EmailSubmission ignored onSuccessUpdateEmail; mail limits sat in the session capability; downloads served attachments still base64-encoded; PushSubscription stored subscriptions but never pushed",
+]
+limitations = [
+  "Sequences are modeled on the published request patterns of these clients, not captured from the applications",
+  "Text, body and attachment searches go through the full-text index, which reached new mail 5-7 s after delivery in this run; mailbox listings are answered directly and are current",
+  "WebSocket (RFC 8887), MDN (RFC 9007) and Blob/upload (RFC 9404) are not implemented and are not advertised",
+]
+
+[[results]]
+scenario_id = "eas-client-transcripts"
+status = "pass"
+evidence = "modeled-transcript"
+client_version = "2026-10 transcripts"
+platform = "Linux amd64"
+tested_at = "2026-10-23"
+tested_revision = "347af49"
+assertions = [
+  "WBXML code pages match MS-ASWBXML token for token (the Settings page was shifted by two and calendar TimeZone was misnamed)",
+  "OPTIONS, base64 request lines (Windows Mail), two-phase Provision with a policy document, 144/449 on a stale X-MS-PolicyKey, and remote wipe with acknowledgement",
+  "FolderSync publishes only mail, calendar, contact and task folders with MS-ASCMD default types, replays a lost response, and does not echo FolderCreate",
+  "Sync honors BodyPreference (text, HTML, MIME with MIMESupport) with truncation, previews and attachment FileReferences; client Add answers ClientId to ServerId; client changes are not echoed; DeletesAsMoves moves to Trash; server-wins conflicts; a retried SyncKey replays without duplicating Adds; empty Sync repeats the cached request",
+  "Ping long-polls the change journal outside the partnership lock and reports changed folders; heartbeat and folder bounds return 5/6",
+  "SendMail (WBXML and 12.1 MIME), SmartReply/SmartForward appending the original and its attachments, ClientId retry detection, 16.x draft Send",
+  "calendar items map time zones, recurrence, exceptions, attendees and all-day events in both directions; contacts and tasks round-trip; MeetingRequest and MeetingResponse; Search (GAL, Mailbox), ResolveRecipients with availability, Settings Oof/UserInformation, GetItemEstimate, MoveItems and ItemOperations",
+  "Veksel' own Exchange-oriented EAS migration client reads mail, calendar and contacts back through the server",
+  "a scripted live client against a built binary (iOS 16.1 and Samsung 14.1 identities) passed provisioning, push, send/reply, attachments, meeting invitation and acceptance, contacts, base64 requests and policy enforcement",
+]
+limitations = [
+  "No physical iOS, Android or Windows client was run; the sequences are replays of documented and observed requests.",
+  "Not implemented: ValidateCert and S/MIME certificate retrieval, ItemOperations conversation Move, Supported (ghosted properties), Sync Partial merging, 16.1 Find beyond FreeText, Notes class, multipart ItemOperations responses, device quarantine/allow lists.",
+]
+
+[[results]]
+scenario_id = "ews-client-transcripts"
+status = "limited"
+evidence = "modeled-transcript"
+client_version = "2026-10 transcripts"
+platform = "Linux amd64"
+tested_at = "2026-10-23"
+tested_revision = "26c67d5"
+assertions = [
+  "batched GetFolder over distinguished folders answers each ID in order, with ErrorFolderNotFound for absent ones and a synthetic msgfolderroot",
+  "hierarchy responses carry ParentFolderId and Default-shape counts and hide internal folders",
+  "items carry IsRead, From, recipients, ParentFolderId and ItemClass; UpdateItem marks batches read; per-item errors replace SOAP faults",
+  "GetUserAvailability returns merged and per-event free/busy in the request's time zone; ResolveNames searches the address list and contacts",
+  "Outlook for Mac CreateItem meetings (local times with StartTimeZone, HTML body, attendees, weekly recurrence) are stored as iCalendar with TZID, RRULE, ORGANIZER and VTIMEZONE; scheduling goes through implicit iMIP and SendToNone silences it",
+  "CalendarView expands recurring series into Occurrence/Exception items with occurrence IDs and pages at MaxEntriesReturned; OccurrenceItemId updates create exceptions and deletes add EXDATEs, shown as ModifiedOccurrences and DeletedOccurrences",
+  "invitations render MyResponseType, Organizer, attendee ResponseType and ResponseObjects, Exchange 2007 clients get MeetingTimeZone instead of StartTimeZone, and AcceptItem answers through the scheduling service",
+  "contacts and tasks round-trip as Contact (indexed email, phone and address updates, contact photo attachment) and Task (dates, status, percent complete); SyncFolderItems over calendar and contacts folders emits CalendarItem and Contact",
+  "GetUserOofSettings/SetUserOofSettings map to the vacation responder; GetAttachment, CreateAttachment and DeleteAttachment work on message MIME parts",
+  "pull Subscribe returns a SubscriptionId and Watermark; GetEvents maps the change journal to NewMailEvent, CreatedEvent, ModifiedEvent, MovedEvent and DeletedEvent with item and folder IDs, PreviousWatermark and MoreEvents, a StatusEvent when idle, and resumes from a Subscribe Watermark",
+  "GetStreamingEvents holds the response open and writes a chunked SOAP envelope within 200 ms of a commit, ConnectionStatus OK keepalives, and Closed at ConnectionTimeout; Unsubscribe, unknown or lapsed subscriptions (ErrorSubscriptionNotFound), the wrong subscription kind (ErrorInvalidSubscription) and another user's subscription answer per-message errors",
+]
+limitations = [
+  "No Mac Mail or Outlook for Mac run is retained.",
+  "Push subscriptions and ConvertId are not implemented and CopiedEvent is never raised (a copy reports CreatedEvent); subscriptions are in memory and lost on restart, so clients resubscribe; meeting requests in the Inbox are messages (no MeetingRequest type); calendar item and task attachments are not supported.",
+]
+
+[[results]]
+scenario_id = "exchange-autodiscover-transcripts"
+status = "pass"
+evidence = "modeled-transcript"
+client_version = "2026-10 transcripts"
+platform = "Linux amd64"
+tested_at = "2026-10-23"
+tested_revision = "347af49"
+assertions = [
+  "a mobilesync POX request is challenged, then answered in the mobilesync schema with the MobileSync URL (it used to get the Outlook schema)",
+  "Autodiscover v2 JSON returns ActiveSync, EWS and AutodiscoverV1 URLs and ProtocolNotSupported otherwise",
+  "the Outlook POX schema still returns EXPR (EWS) and SMTP",
+]
+limitations = ["SOAP Autodiscover was covered by its existing tests only; no real client discovery run is retained."]

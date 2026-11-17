@@ -1,0 +1,77 @@
+# Veksel systemd unit. See docs/deployment.md for installation steps.
+#
+# Install:  sudo install -m 0644 veksel.service /etc/systemd/system/veksel.service
+#           sudo systemctl daemon-reload && sudo systemctl enable --now veksel
+#
+# All product configuration lives in /var/lib/veksel/config.toml and is managed
+# through the administration UI/API. Do not add Environment= lines: Veksel does
+# not read behavioral environment variables.
+#
+# Put local adjustments in a drop-in (sudo systemctl edit veksel), for example
+# an extra ReadWritePaths= entry for an account storage root placed outside
+# /var/lib/veksel.
+
+[Unit]
+Description=Veksel mail and groupware server
+Documentation=https://github.com/lkarlslund/veksel/blob/main/docs/deployment.md
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=simple
+User=veksel
+Group=veksel
+ExecStart=/usr/local/bin/veksel --data-dir /var/lib/veksel
+Restart=on-failure
+RestartSec=5s
+# An administrator-requested restart exits with EX_TEMPFAIL (75).
+RestartForceExitStatus=75
+# SIGTERM starts a graceful drain of the queue and listeners; allow it to
+# finish before systemd escalates to SIGKILL.
+KillSignal=SIGTERM
+TimeoutStopSec=30s
+LimitNOFILE=65536
+
+# State: systemd creates /var/lib/veksel owned by veksel:veksel.
+StateDirectory=veksel
+StateDirectoryMode=0700
+UMask=0077
+WorkingDirectory=/var/lib/veksel
+
+# Bind the privileged mail ports (25, 110, 143, 465, 587, 993, 995, and 80 for
+# ACME HTTP-01) without running as root.
+AmbientCapabilities=CAP_NET_BIND_SERVICE
+CapabilityBoundingSet=CAP_NET_BIND_SERVICE
+
+# Hardening.
+NoNewPrivileges=yes
+ProtectSystem=strict
+ReadWritePaths=/var/lib/veksel
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+DevicePolicy=closed
+ProtectHostname=yes
+ProtectClock=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectProc=invisible
+ProcSubset=pid
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+RemoveIPC=yes
+LockPersonality=yes
+KeyringMode=private
+# Statically linked Go binaries never need writable and executable memory.
+MemoryDenyWriteExecute=yes
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged
+SystemCallErrorNumber=EPERM
+
+[Install]
+WantedBy=multi-user.target

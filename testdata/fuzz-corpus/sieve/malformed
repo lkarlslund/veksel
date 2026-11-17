@@ -1,0 +1,18 @@
+"
+"unterminated string
+if { }
+if (
+{ }
+require
+fileinto
+delete
+reject
+if header :contains "x"
+if address :is
+if size :over
+if date :is "date"
+if not
+if and
+if or
+#!sieve
+# comment only

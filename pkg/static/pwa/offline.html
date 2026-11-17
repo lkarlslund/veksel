@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+<head>
+ <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+ <title>Veksel · Offline</title>
+ <link rel="icon" href="__FAVICON__" type="image/svg+xml">
+ <script src="__THEME_JS__"></script>
+ <link rel="stylesheet" href="__ADMIN_CSS__"><link rel="stylesheet" href="__APP_CSS__">
+</head>
+<body class="offline-page" data-page="offline">
+<main class="offline-shell" id="main-content">
+ <header class="offline-header">
+  <span class="brand-mark" aria-hidden="true">S</span>
+  <div><h1>You are offline</h1><p class="muted">Veksel cannot reach the server. These read-only copies were saved in this browser while you worked; nothing can be changed until the connection returns.</p></div>
+  <button type="button" class="btn btn-primary" id="offline-retry">Try again</button>
+ </header>
+ <p class="offline-status" id="offline-status" role="status" aria-live="polite"></p>
+ <div class="offline-grid">
+  <section class="settings-form-card" aria-labelledby="offline-agenda-title"><h2 id="offline-agenda-title">Today’s agenda</h2><ol class="offline-list" id="offline-agenda"><li class="muted">No saved agenda.</li></ol></section>
+  <section class="settings-form-card" aria-labelledby="offline-messages-title"><h2 id="offline-messages-title">Recently opened messages</h2><ol class="offline-list" id="offline-messages"><li class="muted">No saved messages.</li></ol></section>
+ </div>
+ <article class="settings-form-card offline-reader" id="offline-reader" aria-labelledby="offline-reader-title" hidden><div class="offline-reader-head"><h2 id="offline-reader-title"></h2><button type="button" class="btn btn-sm" id="offline-reader-close">Close</button></div><p class="muted" id="offline-reader-meta"></p><pre id="offline-reader-body"></pre></article>
+</main>
+<script src="__OFFLINE_JS__"></script>
+</body>
+</html>

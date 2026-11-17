@@ -1,0 +1,16 @@
+EHLO example.com
+HELO mail.example.com
+MAIL FROM:<sender@example.com>
+MAIL FROM:<sender@example.com> BODY=8BITMIME
+MAIL FROM:<sender@example.com> SMTPUTF8
+MAIL FROM:<sender@example.com> SIZE=1024
+MAIL FROM:<>
+RCPT TO:<recipient@example.com>
+DATA
+QUIT
+RSET
+NOOP
+STARTTLS
+AUTH PLAIN AGVzZXIAcGFzc3dvcmQ=
+AUTH LOGIN
+AUTH XOAUTH2

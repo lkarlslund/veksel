@@ -1,0 +1,9 @@
+TAG
+TAG CMD
+TAG CMD extra args here
+"quoted tag" CMD
+TAG CMD "arg with spaces"
+TAG CMD ""
+TAG CMD "
+TAG
+TAG CMD ARG

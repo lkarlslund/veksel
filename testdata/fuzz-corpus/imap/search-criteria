@@ -1,0 +1,26 @@
+ALL
+FROM john@example.com
+TO recipient@example.com
+SUBJECT hello world
+SINCE 01-Jan-2024
+BEFORE 31-Dec-2024
+ON 15-Mar-2024
+SEEN
+UNSEEN
+FLAGGED
+ANSWERED
+DELETED
+DRAFT
+UID 1:100
+LARGER 1024
+SMALLER 4096
+HEADER From user@example.com
+TEXT search term
+BODY body text
+SENTON 15
+SENTSINCE 01-Jan-2024
+SENTBEFORE 31-Dec-2024
+OR FROM a TO b
+AND FROM a SEEN
+NOT DELETED
+BODY [HEADER.FIELDS (from to subject)]

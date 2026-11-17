@@ -1,0 +1,27 @@
+{{define "share.gohtml"}}
+<!doctype html>
+<html lang="en">
+<head>
+ <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+ <title>Veksel · Shared resource</title>
+ <script src="{{asset "js/theme.js"}}"></script>
+ <link rel="stylesheet" href="{{asset "css/app.css"}}">
+</head>
+<body class="public-share-page">
+ <header class="public-share-header"><span class="brand-mark">V</span><div><span class="eyebrow">Veksel secure sharing</span><strong>Shared resource</strong></div><button type="button" class="theme-switch" data-theme-toggle aria-label="Change theme"><span data-theme-icon aria-hidden="true">A</span></button></header>
+ <main class="public-share-shell">
+  <section id="public-share-status" class="public-share-status" aria-live="polite"><strong>Opening secure link…</strong><span>The bearer link is being checked.</span></section>
+  <section id="public-share-workspace" class="public-share-workspace" hidden>
+   <header class="public-share-resource"><div><span class="eyebrow" id="public-share-type"></span><h1 id="public-share-title"></h1><p id="public-share-policy"></p></div><span id="public-share-access" class="status-pill"></span></header>
+   <div class="public-share-layout">
+    <section class="public-share-list"><header><strong>Items</strong><span id="public-share-count"></span></header><div id="public-share-items" class="public-share-items"></div><button type="button" class="btn btn-sm" id="public-share-more" hidden>Load more</button></section>
+    <section class="public-share-detail"><div id="public-share-detail" class="empty-state">Select an item to inspect it.</div></section>
+   </div>
+   <form id="public-share-create" class="public-share-editor" hidden><div><span class="eyebrow">Read-write link</span><h2>Add an item</h2></div><label>Name<input name="name" maxlength="255" required></label><label>Text content<textarea name="text" rows="7" placeholder="Enter text or choose a file below"></textarea></label><label>File <small>Optional; replaces text content</small><input name="file" type="file"></label><div class="dialog-actions"><button class="btn btn-primary">Add item</button></div></form>
+  </section>
+ </main>
+ <dialog id="public-share-confirm" class="confirm-dialog"><form method="dialog"><div class="dialog-header"><div><span class="eyebrow">Shared resource</span><h2>Delete item?</h2></div><button value="cancel" class="icon-button" aria-label="Close">×</button></div><p>This permanently deletes the selected item through the shared link.</p><div class="dialog-actions"><button value="cancel" class="btn">Cancel</button><button value="confirm" class="btn btn-danger">Delete item</button></div></form></dialog>
+ <script src="{{asset "js/share.js"}}" defer></script>
+</body>
+</html>
+{{end}}

@@ -1,0 +1,280 @@
+name: Periodic release
+
+on:
+  schedule:
+    - cron: "17 0,12 * * *"
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: Build all targets safely, or also allocate and publish a release
+        type: choice
+        required: true
+        default: validate
+        options:
+          - validate
+          - release
+
+permissions:
+  contents: read
+
+concurrency:
+  group: veksel-periodic-release
+  cancel-in-progress: false
+
+jobs:
+  gate:
+    name: Check for releasable changes
+    runs-on: ubuntu-latest
+    outputs:
+      should_run: ${{ steps.gate.outputs.should_run }}
+      mode: ${{ steps.gate.outputs.mode }}
+      reason: ${{ steps.gate.outputs.reason }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache-dependency-path: go.sum
+      - id: gate
+        name: Compare with latest published release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          MANUAL_MODE: ${{ inputs.mode || '' }}
+        run: |
+          set -euo pipefail
+          mode=release
+          should_run=false
+          reason="No build-relevant changes since the latest published release"
+          if [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]]; then
+            mode="$MANUAL_MODE"
+            should_run=true
+            reason="Manual $mode requested"
+          else
+            latest_tag="$(gh api "repos/$GITHUB_REPOSITORY/releases/latest" --jq .tag_name 2>/dev/null || true)"
+            if [[ -z "$latest_tag" ]] || ! git rev-parse -q --verify "$latest_tag^{commit}" >/dev/null; then
+              should_run=true
+              reason="No published release baseline is available"
+            else
+              released_commit="$(git rev-list -n 1 "$latest_tag")"
+              if ! git merge-base --is-ancestor "$released_commit" "$GITHUB_SHA"; then
+                should_run=true
+                reason="Latest published release is not an ancestor of this commit"
+              else
+                relevant="$(git diff --name-only "$released_commit" "$GITHUB_SHA" | go run ./cmd/veksel-release changes)"
+                if [[ "$relevant" == "true" ]]; then
+                  should_run=true
+                  reason="Build-relevant changes exist after $latest_tag"
+                fi
+              fi
+            fi
+          fi
+          {
+            echo "should_run=$should_run"
+            echo "mode=$mode"
+            echo "reason=$reason"
+          } >> "$GITHUB_OUTPUT"
+          echo "$reason"
+          if [[ "$should_run" == "false" ]]; then
+            echo "Scheduled release stopped before allocation and matrix build."
+          fi
+
+  prepare-validation:
+    name: Prepare non-publishing validation
+    needs: gate
+    if: ${{ needs.gate.outputs.should_run == 'true' && needs.gate.outputs.mode == 'validate' }}
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.identity.outputs.tag }}
+      commit: ${{ steps.identity.outputs.commit }}
+      built_at: ${{ steps.identity.outputs.built_at }}
+      go_version: ${{ steps.identity.outputs.go_version }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache-dependency-path: go.sum
+      - id: identity
+        name: Create disposable validation identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          {
+            echo "tag=r0000"
+            echo "commit=$(git rev-parse HEAD)"
+            echo "built_at=$(git show -s --format=%cI HEAD)"
+            go_version="$(go env GOVERSION)"
+            echo "go_version=${go_version#go}"
+          } >> "$GITHUB_OUTPUT"
+
+  prepare-release:
+    name: Allocate immutable release identity
+    needs: gate
+    if: ${{ needs.gate.outputs.should_run == 'true' && needs.gate.outputs.mode == 'release' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      tag: ${{ steps.release.outputs.tag }}
+      commit: ${{ steps.release.outputs.commit }}
+      built_at: ${{ steps.release.outputs.built_at }}
+      go_version: ${{ steps.release.outputs.go_version }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache-dependency-path: go.sum
+      - id: release
+        name: Allocate or recover release tag
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --force --tags origin
+          tag="$(git for-each-ref --format='%(refname:short)%09%(contents:subject)' 'refs/tags/r*' | go run ./cmd/veksel-release allocate --run-id "$GITHUB_RUN_ID")"
+          commit="$(git rev-parse HEAD)"
+          if git show-ref --verify --quiet "refs/tags/$tag"; then
+            tagged_commit="$(git rev-list -n 1 "$tag")"
+            if [[ "$tagged_commit" != "$commit" ]]; then
+              echo "Existing rerun tag $tag points to $tagged_commit, not $commit" >&2
+              exit 1
+            fi
+            subject="$(git for-each-ref --format='%(contents:subject)' "refs/tags/$tag")"
+            go_version="$(printf '%s\n' "$subject" | go run ./cmd/veksel-release tag-go-version --run-id "$GITHUB_RUN_ID")"
+          else
+            go_version="$(go env GOVERSION)"
+            go_version="${go_version#go}"
+            subject="$(go run ./cmd/veksel-release tag-subject --tag "$tag" --run-id "$GITHUB_RUN_ID" --go-version "$go_version")"
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git tag -a "$tag" "$commit" -m "$subject"
+            git push origin "refs/tags/$tag"
+          fi
+          built_at="$(git for-each-ref --format='%(taggerdate:iso-strict)' "refs/tags/$tag")"
+          {
+            echo "tag=$tag"
+            echo "commit=$commit"
+            echo "built_at=$built_at"
+            echo "go_version=$go_version"
+          } >> "$GITHUB_OUTPUT"
+
+  build:
+    name: Build complete release matrix on one runner
+    needs: [gate, prepare-validation, prepare-release]
+    if: ${{ always() && needs.gate.result == 'success' && (needs.prepare-validation.result == 'success' || needs.prepare-release.result == 'success') }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      RELEASE_TAG: ${{ needs.prepare-release.outputs.tag || needs.prepare-validation.outputs.tag }}
+      RELEASE_COMMIT: ${{ needs.prepare-release.outputs.commit || needs.prepare-validation.outputs.commit }}
+      RELEASE_BUILT_AT: ${{ needs.prepare-release.outputs.built_at || needs.prepare-validation.outputs.built_at }}
+      RELEASE_GO_VERSION: ${{ needs.prepare-release.outputs.go_version || needs.prepare-validation.outputs.go_version }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ env.RELEASE_COMMIT }}
+      - uses: actions/setup-go@v7
+        with:
+          go-version: ${{ env.RELEASE_GO_VERSION }}
+          cache-dependency-path: go.sum
+      - name: Run complete test suite
+        run: go test ./...
+      - name: Vet complete source tree
+        run: go vet ./...
+      - name: Build all 48 release parts
+        shell: bash
+        run: |
+          set -euo pipefail
+          go run ./cmd/veksel-release build-matrix \
+            --root . \
+            --out release-parts \
+            --tag "$RELEASE_TAG" \
+            --commit "$RELEASE_COMMIT" \
+            --built-at "$RELEASE_BUILT_AT" \
+            --run-id "$GITHUB_RUN_ID" \
+            --profile release \
+            --parallel 4
+      - name: Assemble and verify without publishing
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p release-validation
+          go run ./cmd/veksel-release assemble \
+            --input release-parts \
+            --out release-validation/assets \
+            --notes release-validation/RELEASE_NOTES.md
+          go run ./cmd/veksel-release verify-checksums \
+            --dir release-validation/assets
+      - uses: actions/upload-artifact@v7
+        with:
+          name: release-parts
+          path: release-parts/*
+          if-no-files-found: error
+          retention-days: 7
+          compression-level: 0
+
+  publish:
+    name: Verify and publish GitHub release
+    needs: [gate, prepare-release, build]
+    if: ${{ always() && needs.gate.outputs.mode == 'release' && needs.prepare-release.result == 'success' && needs.build.result == 'success' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.prepare-release.outputs.commit }}
+          fetch-depth: 0
+          fetch-tags: true
+      - uses: actions/setup-go@v7
+        with:
+          go-version: ${{ needs.prepare-release.outputs.go_version }}
+          cache-dependency-path: go.sum
+      - uses: actions/download-artifact@v8
+        with:
+          name: release-parts
+          path: downloaded-parts
+      - name: Assemble and verify release
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p release
+          go run ./cmd/veksel-release assemble \
+            --input downloaded-parts \
+            --out release/assets \
+            --notes release/RELEASE_NOTES.md
+      - name: Publish idempotently
+        shell: bash
+        run: |
+          set -euo pipefail
+          tag="${{ needs.prepare-release.outputs.tag }}"
+          commit="${{ needs.prepare-release.outputs.commit }}"
+          tagged_commit="$(git rev-list -n 1 "$tag")"
+          if [[ "$tagged_commit" != "$commit" ]]; then
+            echo "Release tag $tag no longer points to $commit" >&2
+            exit 1
+          fi
+          if gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            mkdir existing-assets
+            gh release download "$tag" --repo "$GITHUB_REPOSITORY" --dir existing-assets
+            go run ./cmd/veksel-release verify-assets --expected release/assets --actual existing-assets
+            echo "Existing $tag release is byte-for-byte identical; nothing to overwrite."
+          else
+            gh release create "$tag" release/assets/* \
+              --repo "$GITHUB_REPOSITORY" \
+              --verify-tag \
+              --title "Veksel $tag" \
+              --notes-file release/RELEASE_NOTES.md
+          fi

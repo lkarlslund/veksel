@@ -1,0 +1,12 @@
+From: test@example.com
+\r\n\r\n
+just body text
+-----BEGIN RSA PRIVATE KEY-----
+not-valid-base64
+-----END RSA PRIVATE KEY-----
+-----BEGIN RSA PRIVATE KEY-----
+-----END RSA PRIVATE KEY-----
+DKIM-Signature: v=1; a=rsa-sha256; d=example.com; s=default; c=relaxed/simple; h=from; bh=invalid!!!; b=invalid!!!
+From: test@example.com
+
+body

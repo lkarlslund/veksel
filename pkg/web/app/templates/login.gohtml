@@ -1,0 +1,61 @@
+{{define "login.gohtml"}}
+<!doctype html>
+<html lang="en">
+<head>
+ <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+ <title>Sign in · Veksel</title><link rel="manifest" href="/app/manifest.webmanifest"><link rel="icon" href="{{asset "images/favicon.svg"}}" type="image/svg+xml"><meta name="theme-color" content="#102f38"><link rel="stylesheet" href="{{asset "css/admin.css"}}">
+</head>
+<body class="bg-surface-0" data-page="login" data-csrf="{{.CSRF}}">
+ <main style="max-width:440px;margin:10vh auto;padding:1rem"><div class="card"><div class="card-body" style="padding:2rem">
+  <h1>Veksel</h1>
+  {{if .Step}}
+  {{if .Error}}<div class="alert alert-danger">{{.Error}}</div>{{end}}
+  <div id="second-factor-status" class="alert alert-danger" role="alert" hidden></div>
+  <div id="second-factor-step"{{if eq .Step "recovery"}} hidden{{end}}>
+  {{if eq .Step "verify"}}
+   <p class="text-muted">Confirm it is you with your second factor.</p>
+   {{if .WebAuthn}}<div class="form-group"><button type="button" class="btn btn-primary w-100" data-webauthn-sign-in>Use security key or passkey</button></div>{{end}}
+   {{if .TOTP}}<form method="post" action="/app/login/second-factor"><input type="hidden" name="_csrf" value="{{.CSRF}}"><input type="hidden" name="method" value="totp">
+    <div class="form-group"><label for="totp-code">Authenticator app code</label><input id="totp-code" class="form-control" name="code" inputmode="numeric" autocomplete="one-time-code" maxlength="8" required{{if and (not .WebAuthn) (ne .Method "recovery")}} autofocus{{end}}></div>
+    <button class="btn {{if .WebAuthn}}btn-secondary{{else}}btn-primary{{end}} w-100" type="submit">Verify code</button>
+   </form>{{end}}
+   <details class="form-group" style="margin-top:1rem"{{if eq .Method "recovery"}} open{{end}}><summary>Use a recovery code</summary>
+    <form method="post" action="/app/login/second-factor"><input type="hidden" name="_csrf" value="{{.CSRF}}"><input type="hidden" name="method" value="recovery">
+     <div class="form-group"><label for="recovery-code">Recovery code</label><input id="recovery-code" class="form-control" name="code" autocomplete="off" spellcheck="false" maxlength="32" required{{if eq .Method "recovery"}} autofocus{{end}}></div>
+     <button class="btn btn-secondary w-100" type="submit">Use recovery code</button>
+    </form>
+   </details>
+  {{else if eq .Step "enrol"}}
+   <p class="text-muted">Two-factor sign-in is required for your account. Scan the code with an authenticator app, or register a security key, to continue.</p>
+   <p style="text-align:center"><img src="{{.QRCode}}" alt="QR code for authenticator app setup" width="200" height="200"></p>
+   <p class="text-muted">Or enter this key manually: <code style="overflow-wrap:anywhere">{{.TOTPSecret}}</code></p>
+   <form method="post" action="/app/login/second-factor"><input type="hidden" name="_csrf" value="{{.CSRF}}"><input type="hidden" name="method" value="totp">
+    <div class="form-group"><label for="totp-code">Code from the app</label><input id="totp-code" class="form-control" name="code" inputmode="numeric" autocomplete="one-time-code" maxlength="8" required autofocus></div>
+    <button class="btn btn-primary w-100" type="submit">Confirm and continue</button>
+   </form>
+   <hr>
+   <div class="form-group"><label for="webauthn-name">Security key name</label><input id="webauthn-name" class="form-control" maxlength="100" value="Security key" autocomplete="off"></div>
+   <button type="button" class="btn btn-secondary w-100" data-webauthn-sign-in>Register a security key instead</button>
+  {{end}}
+   <p style="margin-top:1rem"><a href="/app/login">Sign in with a different account</a></p>
+  </div>
+  <section id="recovery-codes-panel"{{if ne .Step "recovery"}} hidden{{end}}>
+   <div class="alert alert-success">Two-factor sign-in is enabled.</div>
+   <p>Save these recovery codes somewhere safe. Each one works once if you lose your authenticator. They will not be shown again.</p>
+   <ol id="recovery-code-list" style="columns:2;font-family:monospace">{{range .RecoveryCodes}}<li>{{.}}</li>{{end}}</ol>
+   <a class="btn btn-primary w-100" href="/app/">Continue to Veksel</a>
+  </section>
+  {{else}}
+  <p class="text-muted">Mail, calendars, files and administration in one place.</p>
+  {{if .SetupComplete}}<div class="alert alert-success">Your system owner account is ready.</div>{{end}}
+  {{if .Error}}<div class="alert alert-danger">{{.Error}}</div>{{end}}
+  <form method="post" action="/app/login"><input type="hidden" name="_csrf" value="{{.CSRF}}">
+   <div class="form-group"><label for="username">Username</label><input id="username" class="form-control" name="username" autocomplete="username" required autofocus></div>
+   <div class="form-group"><label for="password">Password</label><input id="password" class="form-control" name="password" type="password" autocomplete="current-password" required></div>
+   <button class="btn btn-primary w-100" type="submit">Sign in</button>
+  </form>
+  {{end}}
+ </div></div></main>
+ {{if .Step}}<script src="{{asset "js/app.js"}}" defer></script>{{end}}
+</body></html>
+{{end}}

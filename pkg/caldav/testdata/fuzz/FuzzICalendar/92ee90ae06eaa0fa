@@ -1,0 +1,2 @@
+go test fuzz v1
+string("DTSTART;TZID=\"0:0")

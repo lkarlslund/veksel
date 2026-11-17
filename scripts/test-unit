@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+module="$(go list -m)"
+scenario_packages=(
+	"$module/pkg/e2e"
+	"$module/pkg/loadtest"
+	"$module/pkg/smtp"
+)
+
+mapfile -t unit_packages < <(
+	go list ./... | while IFS= read -r package; do
+		is_scenario=false
+		for scenario in "${scenario_packages[@]}"; do
+			if [[ "$package" == "$scenario" ]]; then
+				is_scenario=true
+				break
+			fi
+		done
+		if [[ "$is_scenario" == "false" ]]; then
+			printf '%s\n' "$package"
+		fi
+	done
+)
+
+if [[ "${#unit_packages[@]}" -eq 0 ]]; then
+	echo "No unit-test packages were discovered." >&2
+	exit 1
+fi
+
+go test -short -failfast "${unit_packages[@]}"
+
+# Scenario suites still compile on every source change. Their tests execute in
+# the complete daily/manual validation, where they cannot multiply across a
+# rapidly superseded series of push runs.
+go test -run '^$' "${scenario_packages[@]}"

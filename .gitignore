@@ -1,0 +1,39 @@
+# Research folder
+research/
+
+# Data directory (created at runtime by the store backend)
+data/
+
+# Go build artifacts
+/veksel
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Test/coverage artifacts
+cover.out
+cpu.out
+mem.out
+*.test
+*.out
+/output/
+
+# Local development restart hold marker
+.dev-no-restart
+
+# Tooling caches
+.golangci.yml.bak
+node_modules/
+
+# Agent worktrees
+.claude/worktrees/
+/AGENTS.md
+/CLAUDE.md

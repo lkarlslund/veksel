@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$ROOT_DIR"
+
+declare -a candidates=()
+if (( "$#" == 0 )); then
+	while IFS= read -r path; do candidates+=("$path"); done < <(git ls-files --cached --others --exclude-standard -- '*.go')
+elif (( "$#" == 2 )); then
+	while IFS= read -r path; do candidates+=("$path"); done < <(git diff --name-only --diff-filter=ACMRT "$1" "$2" -- '*.go')
+else
+	echo "usage: scripts/check-gofmt [BASE HEAD]" >&2
+	exit 2
+fi
+
+declare -a files=()
+while IFS= read -r path; do
+	[[ -n "$path" && -f "$path" ]] && files+=("$path")
+done < <(printf '%s\n' "${candidates[@]}" | sort -u)
+
+if (( "${#files[@]}" == 0 )); then
+	exit 0
+fi
+
+unformatted="$(gofmt -l -- "${files[@]}")"
+if [[ -n "$unformatted" ]]; then
+	echo "The following Go files need gofmt:" >&2
+	echo "$unformatted" >&2
+	exit 1
+fi

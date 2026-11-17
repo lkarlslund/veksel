@@ -1,0 +1,40 @@
+require "fileinto";
+if address :is "from" "user@example.com" {
+    fileinto "inbox";
+    stop;
+}
+if header :contains "subject" "urgent" {
+    fileinto "important";
+}
+if size :over 1000 {
+    reject "Message too large";
+}
+if address :domain "from" "spam.com" {
+    delete;
+}
+redirect "backup@example.com";
+keep;
+addheader "X-Filtered" "true";
+if header :is "from" "news@example.com" {
+    fileinto "newsletters";
+    stop;
+} elsif header :is "from" "social@example.com" {
+    fileinto "social";
+} else {
+    keep;
+}
+if address :matches "from" "@example.com" {
+    fileinto "example";
+}
+if date :is "date" "2024-01-01" {
+    fileinto "archive";
+}
+if not header :contains "from" "spam" {
+    keep;
+}
+if address :is "from" "a" and header :is "subject" "b" {
+    fileinto "x";
+}
+if address :is "from" "a" or address :is "from" "b" {
+    fileinto "y";
+}

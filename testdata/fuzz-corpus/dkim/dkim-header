@@ -1,0 +1,8 @@
+DKIM-Signature: v=1; a=rsa-sha256; d=example.com; s=default; c=relaxed/simple; h=from:to:subject:date:message-id; bh=abcdef1234567890==; b=signature==
+From: sender@example.com
+To: recipient@example.com
+Subject: Signed Email
+Date: Mon, 1 Jan 2024 00:00:00 +0000
+Message-ID: <signed@example.com>
+
+Hello World
