@@ -268,3 +268,21 @@ func TestFindItemDecodesWindows1252Subject(t *testing.T) {
 		t.Fatalf("subjects = %q", subjects)
 	}
 }
+
+// Preview is an Exchange 2013 element. Clients that do not know it reject
+// the whole item, so it is only returned when requested: KDE's EWS resource
+// fetches message content with IdOnly plus item:MimeContent.
+func TestPreviewOnlyWhenRequested(t *testing.T) {
+	handler, space := testHandler(t)
+	seedFindItemInbox(t, space)
+	for _, shape := range []string{
+		`<t:BaseShape>IdOnly</t:BaseShape><t:AdditionalProperties><t:FieldURI FieldURI="item:MimeContent"/></t:AdditionalProperties>`,
+		`<t:BaseShape>Default</t:BaseShape>`,
+		`<t:BaseShape>AllProperties</t:BaseShape>`,
+	} {
+		body := ewsRequest(t, handler, `<m:FindItem Traversal="Shallow"><m:ItemShape>`+shape+`</m:ItemShape>`+inboxParent+`</m:FindItem>`).Body.String()
+		if strings.Contains(body, "<t:Preview>") {
+			t.Fatalf("Preview returned for %s: %s", shape, body)
+		}
+	}
+}

@@ -226,6 +226,10 @@ type itemShape struct {
 	// explicitly, whatever the base shape, or implied by GetItem's Default
 	// and AllFields shapes.
 	body bool
+	// preview is set when AdditionalProperties names item:Preview. It is an
+	// Exchange 2013 property that older clients, such as KDE's EWS resource,
+	// reject as an unknown element together with the whole item.
+	preview bool
 
 	info    requestInfo
 	profile Profile
@@ -248,6 +252,8 @@ func parseItemShape(shape *node) itemShape {
 			result.mime = true
 		case "item:body", "item:textbody":
 			result.body = true
+		case "item:preview":
+			result.preview = true
 		}
 	})
 	if include := shape.descendantText("IncludeMimeContent"); strings.EqualFold(include, "true") {
@@ -311,7 +317,7 @@ func renderItem(item model.Item, shape itemShape) string {
 		out.WriteString(`<t:DateTimeSent>` + sent.UTC().Format(time.RFC3339) + `</t:DateTimeSent>`)
 	}
 	out.WriteString(`<t:HasAttachments>` + strconv.FormatBool(len(projection.Attachments) > 0) + `</t:HasAttachments>`)
-	if preview := messagePreview(projection); preview != "" {
+	if preview := messagePreview(projection); shape.preview && preview != "" {
 		out.WriteString(`<t:Preview>` + escape(preview) + `</t:Preview>`)
 	}
 	if recipients := mailboxesXML(header("To")); recipients != "" {
