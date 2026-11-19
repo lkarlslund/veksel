@@ -132,3 +132,32 @@ func TestRereadRefusesRunningJob(t *testing.T) {
 		t.Fatalf("reread of a running job: %v", err)
 	}
 }
+
+// Items whose import names are already taken in the special folder still
+// move.
+func TestRunnerRehomeRenamesOnNameClash(t *testing.T) {
+	jobs, runner, space := migrationTestSetup(t)
+	ctx, access := t.Context(), service.UserAccess("alice", "test")
+	job, err := jobs.Create(ctx, Job{OwnerID: "alice", DestinationID: "alice", SourceType: "fake"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := runner.Run(ctx, job.ID, &localizedInboxSource{items: []string{"one"}}); err != nil {
+		t.Fatal(err)
+	}
+	first, _ := jobs.Get(ctx, job.ID)
+	moved, err := space.ListItems(ctx, access, first.FolderMap["remote-inbox"], service.ItemQuery{})
+	if err != nil || len(moved) != 1 {
+		t.Fatalf("duplicate holds %d items (err %v)", len(moved), err)
+	}
+	if _, err := space.CreateItem(ctx, access, model.InboxFolderID("alice"), service.ItemInput{Name: moved[0].Name, Data: []byte("Subject: same name\r\n\r\nbody\r\n")}); err != nil {
+		t.Fatal(err)
+	}
+	if err := runner.Run(ctx, job.ID, &localizedInboxSource{recognised: true, items: []string{"one"}}); err != nil {
+		t.Fatal(err)
+	}
+	inbox, _ := space.ListItems(ctx, access, model.InboxFolderID("alice"), service.ItemQuery{})
+	if len(inbox) != 2 {
+		t.Fatalf("inbox holds %d items, want the clashing item and the moved one", len(inbox))
+	}
+}

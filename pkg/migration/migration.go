@@ -2577,7 +2577,13 @@ func (r *Runner) rehomeSyncedItems(ctx context.Context, access service.AccessCon
 			remaining++
 			continue
 		}
-		if _, err := r.space.MoveItem(ctx, access, item.ID, to, ""); err != nil {
+		_, err := r.space.MoveItem(ctx, access, item.ID, to, "")
+		if errors.Is(err, store.ErrExists) {
+			// Import names are generated per folder and can repeat in
+			// another one; the item ID is unique.
+			_, err = r.space.MoveItem(ctx, access, item.ID, to, item.ID)
+		}
+		if err != nil {
 			return fmt.Errorf("move item %q: %w", item.ID, err)
 		}
 	}
