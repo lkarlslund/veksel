@@ -374,34 +374,25 @@ func (h *Handler) findItem(ctx context.Context, access service.AccessContext, op
 	}
 	shape := h.shapeFor(ctx, access, op.descendant("ItemShape"))
 	if view := op.descendant("CalendarView"); view != nil {
+		if op.child("Restriction") != nil || op.child("QueryString") != nil {
+			return responses("FindItem", []responseMessage{{err: fmt.Errorf("%w: a CalendarView cannot be combined with a restriction or query string", errInvalidRestriction)}}), nil
+		}
 		return h.calendarView(ctx, access, folder, view, shape)
+	}
+	query, err := parseFindItemQuery(op, shape.zone)
+	if err != nil {
+		return responses("FindItem", []responseMessage{{err: err}}), nil
 	}
 	items, err := h.space.ListItems(ctx, access, folder.ID, service.ItemQuery{})
 	if err != nil {
 		return "", err
 	}
-	total := len(items)
-	offset, limit := 0, total
-	if view := op.descendant("IndexedPageItemView"); view != nil {
-		if parsed, parseErr := strconv.Atoi(view.attr("Offset")); parseErr == nil && parsed > 0 {
-			offset = parsed
-		}
-		if parsed, parseErr := strconv.Atoi(view.attr("MaxEntriesReturned")); parseErr == nil && parsed > 0 {
-			limit = parsed
-		}
-	}
-	if offset > total {
-		offset = total
-	}
-	end := offset + limit
-	if end > total {
-		end = total
-	}
+	page, total, paging := query.apply(items, shape.zone)
 	var out strings.Builder
-	for _, item := range items[offset:end] {
+	for _, item := range page {
 		out.WriteString(renderItem(item, shape))
 	}
-	root := fmt.Sprintf(`<m:RootFolder TotalItemsInView="%d" IndexedPagingOffset="%d" IncludesLastItemInRange="%t"><t:Items>%s</t:Items></m:RootFolder>`, total, end, end >= total, out.String())
+	root := fmt.Sprintf(`<m:RootFolder TotalItemsInView="%d" %s><t:Items>%s</t:Items></m:RootFolder>`, total, paging, out.String())
 	return response("FindItem", root), nil
 }
 
@@ -1200,6 +1191,10 @@ func ewsError(err error) (string, string) {
 		return "ErrorIrresolvableConflict", "The item changed since it was read"
 	case errors.Is(err, errEWSInvalidProperty):
 		return "ErrorInvalidPropertyRequest", err.Error()
+	case errors.Is(err, errUnsupportedPath):
+		return "ErrorUnsupportedPathForQuery", err.Error()
+	case errors.Is(err, errInvalidRestriction):
+		return "ErrorInvalidRestriction", err.Error()
 	case errors.Is(err, errEndBeforeStart):
 		return "ErrorCalendarEndDateIsEarlierThanStartDate", "The end date is earlier than the start date"
 	case errors.Is(err, errAttachmentNotFound):

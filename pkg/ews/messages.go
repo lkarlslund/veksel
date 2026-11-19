@@ -303,15 +303,14 @@ func renderItem(item model.Item, shape itemShape) string {
 			out.WriteString(`<t:Attachments>` + attachments + `</t:Attachments>`)
 		}
 	}
-	received := item.InternalDate
-	if received.IsZero() {
-		received = item.CreatedAt
-	}
-	out.WriteString(`<t:DateTimeReceived>` + received.UTC().Format(time.RFC3339) + `</t:DateTimeReceived><t:Size>` + strconv.FormatInt(item.Size, 10) + `</t:Size><t:Importance>` + ewsImportance(item.Headers) + `</t:Importance>`)
+	out.WriteString(`<t:DateTimeReceived>` + messageReceived(item) + `</t:DateTimeReceived><t:Size>` + strconv.FormatInt(item.Size, 10) + `</t:Size><t:Importance>` + ewsImportance(item.Headers) + `</t:Importance>`)
 	if sent, err := mail.ParseDate(header("Date")); err == nil {
 		out.WriteString(`<t:DateTimeSent>` + sent.UTC().Format(time.RFC3339) + `</t:DateTimeSent>`)
 	}
 	out.WriteString(`<t:HasAttachments>` + strconv.FormatBool(len(projection.Attachments) > 0) + `</t:HasAttachments>`)
+	if preview := messagePreview(projection); preview != "" {
+		out.WriteString(`<t:Preview>` + escape(preview) + `</t:Preview>`)
+	}
 	if recipients := mailboxesXML(header("To")); recipients != "" {
 		out.WriteString(`<t:ToRecipients>` + recipients + `</t:ToRecipients>`)
 	}
@@ -413,4 +412,38 @@ func (n *node) ChildrenNamed(local string) []*node {
 		}
 	}
 	return result
+}
+
+// messagePreview is the start of the message text with whitespace collapsed,
+// at most 255 characters as Exchange returns it.
+func messagePreview(projection service.MessageProjection) string {
+	text := projection.Text
+	if text == "" && projection.HTML != "" {
+		text = service.HTMLToText(projection.HTML)
+	}
+	words := strings.Fields(text)
+	var out strings.Builder
+	for _, word := range words {
+		if out.Len() > 0 {
+			out.WriteByte(' ')
+		}
+		out.WriteString(word)
+		if out.Len() >= 255 {
+			break
+		}
+	}
+	preview := []rune(out.String())
+	if len(preview) > 255 {
+		preview = preview[:255]
+	}
+	return string(preview)
+}
+
+// messageReceived is a message's DateTimeReceived as FindItem renders it.
+func messageReceived(item model.Item) string {
+	received := item.InternalDate
+	if received.IsZero() {
+		received = item.CreatedAt
+	}
+	return received.UTC().Format(time.RFC3339)
 }
