@@ -402,7 +402,9 @@ func (h *Handler) getItem(ctx context.Context, access service.AccessContext, op 
 		return "", errors.New("item ID is required")
 	}
 	shape := h.shapeFor(ctx, access, op.descendant("ItemShape"))
-	shape.body = true
+	// Default and AllFields include the body; IdOnly returns it only when
+	// AdditionalProperties names it.
+	shape.body = shape.body || !shape.idOnly
 	messages := make([]responseMessage, 0, len(ids))
 	for _, encoded := range ids {
 		item, key, err := h.lookupItem(ctx, access, encoded, shape.zone)

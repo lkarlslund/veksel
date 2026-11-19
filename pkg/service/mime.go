@@ -281,15 +281,11 @@ func describeMIMEAttachment(header mail.Header, mediaType, partID string) (Messa
 func projectMIMEHeaders(header mail.Header) map[string]string {
 	result := make(map[string]string)
 	keys := []string{"From", "Sender", "Reply-To", "To", "Cc", "Bcc", "Subject", "Date", "Message-ID", "In-Reply-To", "References", "Importance", "X-Priority", "Priority", "Disposition-Notification-To", "Return-Path"}
-	decoder := new(mime.WordDecoder)
 	for _, key := range keys {
 		if len(result) >= MaxMIMEHeaderKeys {
 			break
 		}
-		value := header.Get(key)
-		if decoded, err := decoder.DecodeHeader(value); err == nil {
-			value = decoded
-		}
+		value := model.DecodeHeaderValue(header.Get(key))
 		if value != "" {
 			result[key] = value
 		}

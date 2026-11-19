@@ -69,7 +69,7 @@ func (h *Handler) apiWorkspaceMailEML(w http.ResponseWriter, r *http.Request) {
 	}
 	subject := ""
 	if message, parseErr := mail.ReadMessage(bytes.NewReader(item.Data)); parseErr == nil {
-		subject, _ = new(mime.WordDecoder).DecodeHeader(message.Header.Get("Subject"))
+		subject = model.DecodeHeaderValue(message.Header.Get("Subject"))
 	}
 	name := strings.Join(strings.Fields(emlFilenameUnsafe.ReplaceAllString(subject, " ")), " ")
 	if len(name) > 80 {

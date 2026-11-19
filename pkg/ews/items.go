@@ -148,7 +148,7 @@ func (c itemCommon) render(shape itemShape) string {
 	out.WriteString(`<t:ItemId Id="` + c.id + `" ChangeKey="` + strconv.FormatUint(c.item.ModSeq, 10) + `"/>`)
 	out.WriteString(`<t:ParentFolderId Id="` + encodeID("f:", c.item.FolderID) + `"/><t:ItemClass>` + c.class + `</t:ItemClass>`)
 	out.WriteString(`<t:Subject>` + escape(c.subject) + `</t:Subject><t:Sensitivity>` + c.sensitivity + `</t:Sensitivity>`)
-	if shape.body && !shape.idOnly {
+	if shape.body {
 		out.WriteString(`<t:Body BodyType="Text">` + escape(c.body) + `</t:Body>`)
 	}
 	if c.attachments != "" {

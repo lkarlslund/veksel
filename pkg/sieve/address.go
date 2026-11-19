@@ -1,13 +1,8 @@
 package sieve
 
 import (
-	"io"
-	"mime"
 	"net/mail"
 	"strings"
-
-	"golang.org/x/text/encoding/htmlindex"
-	"golang.org/x/text/transform"
 
 	"github.com/lkarlslund/veksel/pkg/model"
 )
@@ -23,20 +18,12 @@ var addressHeaders = map[string]bool{
 	"disposition-notification-to": true, "original-recipient": true,
 }
 
-var headerWordDecoder = &mime.WordDecoder{CharsetReader: func(charset string, input io.Reader) (io.Reader, error) {
-	encoding, err := htmlindex.Get(charset)
-	if err != nil {
-		return nil, err
-	}
-	return transform.NewReader(input, encoding.NewDecoder()), nil
-}}
-
 // decodeHeader returns a header value as RFC 5228 section 2.7.2 compares
 // it: RFC 2047 encoded words decoded, surrounding white space removed.
 func decodeHeader(value string) string {
 	value = strings.TrimSpace(value)
 	if strings.Contains(value, "=?") {
-		if decoded, err := headerWordDecoder.DecodeHeader(value); err == nil {
+		if decoded, err := model.HeaderWordDecoder.DecodeHeader(value); err == nil {
 			value = decoded
 		}
 	}

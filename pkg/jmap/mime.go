@@ -434,7 +434,7 @@ func headerFormValue(form, raw string) any {
 	return raw
 }
 
-var wordDecoder = &mime.WordDecoder{CharsetReader: charset.NewReaderLabel}
+var wordDecoder = model.HeaderWordDecoder
 
 // headerText is the Text form: unfolded, encoded-words decoded, trimmed.
 func headerText(raw string) string {

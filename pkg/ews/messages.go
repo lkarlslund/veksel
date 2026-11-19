@@ -222,7 +222,10 @@ func renderFolder(folder model.Folder, counts *folderCounts) string {
 type itemShape struct {
 	idOnly bool
 	mime   bool
-	body   bool
+	// body is set when the body is part of the response: requested
+	// explicitly, whatever the base shape, or implied by GetItem's Default
+	// and AllFields shapes.
+	body bool
 
 	info    requestInfo
 	profile Profile
@@ -293,7 +296,7 @@ func renderItem(item model.Item, shape itemShape) string {
 		subject = item.Name
 	}
 	out.WriteString(`<t:Subject>` + escape(subject) + `</t:Subject>`)
-	if shape.body && !shape.idOnly {
+	if shape.body {
 		text := projection.Text
 		if text == "" && projection.HTML != "" {
 			text = service.HTMLToText(projection.HTML)

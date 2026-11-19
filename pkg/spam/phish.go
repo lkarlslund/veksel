@@ -3,7 +3,6 @@ package spam
 import (
 	"context"
 	"fmt"
-	"mime"
 	"net/mail"
 	"net/netip"
 	"regexp"
@@ -14,6 +13,7 @@ import (
 	"unicode"
 	"unicode/utf8"
 
+	"github.com/lkarlslund/veksel/pkg/model"
 	"golang.org/x/net/html"
 	"golang.org/x/net/idna"
 	"golang.org/x/text/unicode/norm"
@@ -565,10 +565,7 @@ func displayName(value string) string {
 }
 
 func decodeHeader(value string) string {
-	if decoded, err := new(mime.WordDecoder).DecodeHeader(value); err == nil {
-		return decoded
-	}
-	return value
+	return model.DecodeHeaderValue(value)
 }
 
 func normalizeName(name string) string {

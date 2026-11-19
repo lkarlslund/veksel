@@ -117,7 +117,7 @@ func (w *walker) leaf(header textproto.MIMEHeader, mediaType string, body io.Rea
 	if name == "" && disposition != "attachment" {
 		return
 	}
-	name, _ = new(mime.WordDecoder).DecodeHeader(name)
+	name = model.DecodeHeaderValue(name)
 	data := w.read(model.TransferDecoder(body, header.Get("Content-Transfer-Encoding")), maxAttachmentBytes)
 	w.file(name, name, mediaType, data, 0)
 }

@@ -203,3 +203,68 @@ func TestFindItemReturnsPreview(t *testing.T) {
 		t.Fatalf("preview missing: %s", body)
 	}
 }
+
+// A narrow shape that names the body gets it: IdOnly plus AdditionalProperties
+// returns exactly the requested properties, the body included.
+func TestIdOnlyShapeReturnsRequestedBody(t *testing.T) {
+	handler, space := testHandler(t)
+	seedFindItemInbox(t, space)
+	find := ewsRequest(t, handler, `<m:FindItem Traversal="Shallow"><m:ItemShape><t:BaseShape>IdOnly</t:BaseShape></m:ItemShape>`+inboxParent+`<m:QueryString>subject:alpha</m:QueryString></m:FindItem>`).Body.String()
+	id := regexp.MustCompile(`<t:ItemId Id="([^"]+)"`).FindStringSubmatch(find)
+	if id == nil {
+		t.Fatalf("no item: %s", find)
+	}
+	getItem := func(shape string) string {
+		t.Helper()
+		return ewsRequest(t, handler, `<m:GetItem><m:ItemShape>`+shape+`</m:ItemShape><m:ItemIds><t:ItemId Id="`+id[1]+`"/></m:ItemIds></m:GetItem>`).Body.String()
+	}
+	tests := []struct {
+		name, shape string
+		body, mime  bool
+	}{
+		{"IdOnly", `<t:BaseShape>IdOnly</t:BaseShape>`, false, false},
+		{"IdOnly item:Body", `<t:BaseShape>IdOnly</t:BaseShape><t:AdditionalProperties><t:FieldURI FieldURI="item:Body"/></t:AdditionalProperties>`, true, false},
+		{"IdOnly item:TextBody", `<t:BaseShape>IdOnly</t:BaseShape><t:AdditionalProperties><t:FieldURI FieldURI="item:TextBody"/></t:AdditionalProperties>`, true, false},
+		{"IdOnly item:MimeContent", `<t:BaseShape>IdOnly</t:BaseShape><t:AdditionalProperties><t:FieldURI FieldURI="item:MimeContent"/></t:AdditionalProperties>`, false, true},
+		{"IdOnly IncludeMimeContent", `<t:BaseShape>IdOnly</t:BaseShape><t:IncludeMimeContent>true</t:IncludeMimeContent>`, false, true},
+		{"Default", `<t:BaseShape>Default</t:BaseShape>`, true, true},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			response := getItem(test.shape)
+			if got := strings.Contains(response, `<t:Body BodyType="Text">Quarterly numbers attached.`); got != test.body {
+				t.Errorf("body present = %v, want %v: %s", got, test.body, response)
+			}
+			if got := strings.Contains(response, `<t:MimeContent`); got != test.mime {
+				t.Errorf("MIME content present = %v, want %v: %s", got, test.mime, response)
+			}
+		})
+	}
+	found, _ := findItemSubjects(t, handler, inboxParent+`<m:QueryString>subject:alpha</m:QueryString>`)
+	if strings.Contains(found, `<t:Body`) {
+		t.Fatalf("FindItem without a requested body returned one: %s", found)
+	}
+	withBody := ewsRequest(t, handler, `<m:FindItem Traversal="Shallow"><m:ItemShape><t:BaseShape>IdOnly</t:BaseShape><t:AdditionalProperties><t:FieldURI FieldURI="item:Body"/></t:AdditionalProperties></m:ItemShape>`+inboxParent+`<m:QueryString>subject:alpha</m:QueryString></m:FindItem>`).Body.String()
+	if !strings.Contains(withBody, `<t:Body BodyType="Text">Quarterly numbers attached.`) {
+		t.Fatalf("FindItem IdOnly with item:Body returned no body: %s", withBody)
+	}
+}
+
+// Subjects encoded in charsets other than UTF-8 and ISO-8859-1 reach EWS
+// clients decoded.
+func TestFindItemDecodesWindows1252Subject(t *testing.T) {
+	handler, space := testHandler(t)
+	access := service.UserAccess("alice", "test")
+	inbox, err := space.GetFolderByPath(t.Context(), access, "INBOX")
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw := "From: ann@example.test\r\nTo: alice@example.test\r\nSubject: =?Windows-1252?Q?Re:_Offer_=96_p=E5_vej?=\r\n =?Windows-1252?Q?_til_dig?=\r\n\r\nBody\r\n"
+	if _, err := space.CreateItem(t.Context(), access, inbox.ID, service.ItemInput{Data: []byte(raw)}); err != nil {
+		t.Fatal(err)
+	}
+	_, subjects := findItemSubjects(t, handler, inboxParent)
+	if len(subjects) != 1 || subjects[0] != "Re: Offer – på vej til dig" {
+		t.Fatalf("subjects = %q", subjects)
+	}
+}

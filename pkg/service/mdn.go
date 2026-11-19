@@ -49,12 +49,7 @@ func BuildDispositionNotification(original []byte, finalRecipient, reportingHost
 	if mediaType, params, _ := mime.ParseMediaType(message.Header.Get("Content-Type")); mediaType == "multipart/report" && strings.EqualFold(params["report-type"], "disposition-notification") {
 		return DispositionNotification{}, errors.New("read receipts are never sent for read receipts")
 	}
-	decoder := new(mime.WordDecoder)
-	subject, decodeErr := decoder.DecodeHeader(message.Header.Get("Subject"))
-	if decodeErr != nil {
-		subject = message.Header.Get("Subject")
-	}
-	subject = sanitizeHeader(subject)
+	subject := sanitizeHeader(model.DecodeHeaderValue(message.Header.Get("Subject")))
 	recipient := strings.ToLower(requested[0].Address)
 	originalID := strings.TrimSpace(message.Header.Get("Message-ID"))
 	reportingHost = sanitizeHeader(reportingHost)

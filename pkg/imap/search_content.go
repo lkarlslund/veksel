@@ -2,11 +2,11 @@ package imap
 
 import (
 	"bytes"
-	"io"
 	"mime"
 	"net/mail"
 	"strings"
 
+	"github.com/lkarlslund/veksel/pkg/model"
 	"golang.org/x/text/encoding/htmlindex"
 	"golang.org/x/text/transform"
 	"golang.org/x/text/unicode/norm"
@@ -25,18 +25,7 @@ func decodedMessageHeaders(data []byte) mail.Header {
 }
 
 func decodedHeaderValue(value string) string {
-	decoder := &mime.WordDecoder{CharsetReader: func(charset string, input io.Reader) (io.Reader, error) {
-		encoding, err := htmlindex.Get(charset)
-		if err != nil {
-			return nil, err
-		}
-		return transform.NewReader(input, encoding.NewDecoder()), nil
-	}}
-	decoded, err := decoder.DecodeHeader(value)
-	if err == nil {
-		return decoded
-	}
-	return value
+	return model.DecodeHeaderValue(value)
 }
 
 func searchableHeaders(data []byte) string {

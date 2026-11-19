@@ -9,6 +9,8 @@ import (
 	"net/textproto"
 	"slices"
 	"strings"
+
+	"golang.org/x/net/html/charset"
 )
 
 // SplitHeaderBody splits raw message bytes at the first blank line. The header
@@ -263,10 +265,19 @@ func PrependHeaderField(message []byte, field string) []byte {
 	return append(out, message...)
 }
 
+// HeaderWordDecoder decodes RFC 2047 encoded-words in any charset the WHATWG
+// encoding index knows, such as Windows-1252 and ISO-8859-15, not only the
+// UTF-8 and ISO-8859-1 the standard library decodes on its own.
+var HeaderWordDecoder = &mime.WordDecoder{CharsetReader: charset.NewReaderLabel}
+
 // DecodeHeaderValue decodes RFC 2047 encoded-words in a header value,
-// returning the value unchanged when it cannot be decoded.
+// returning the value unchanged when it cannot be decoded, for example
+// because of an unknown charset.
 func DecodeHeaderValue(value string) string {
-	decoded, err := new(mime.WordDecoder).DecodeHeader(value)
+	if !strings.Contains(value, "=?") {
+		return value
+	}
+	decoded, err := HeaderWordDecoder.DecodeHeader(value)
 	if err != nil {
 		return value
 	}
