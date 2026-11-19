@@ -1225,6 +1225,41 @@ func (r *Runner) persistRun(ctx context.Context, job Job) error {
 	return r.jobs.SaveRun(ctx, job)
 }
 
+// ErrJobRunning reports an action that needs the job to be idle.
+var ErrJobRunning = errors.New("sync job is running")
+
+// Reread clears the checkpoints of folderIDs, or of every folder when none
+// are named, so the next run reads those folders from the beginning instead
+// of only the source's later changes. Items already imported are recognised
+// by their source identity and are not imported again. It returns the
+// number of folders cleared.
+func (r *Runner) Reread(ctx context.Context, jobID string, folderIDs []string) (int, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if _, running := r.cancels[jobID]; running {
+		return 0, ErrJobRunning
+	}
+	job, err := r.jobs.Get(ctx, jobID)
+	if err != nil {
+		return 0, err
+	}
+	cleared := 0
+	checkpoints := cloneStringMap(job.Checkpoints)
+	if len(folderIDs) == 0 {
+		cleared = len(checkpoints)
+		checkpoints = map[string]string{}
+	}
+	for _, id := range folderIDs {
+		if _, ok := checkpoints[id]; ok {
+			delete(checkpoints, id)
+			cleared++
+		}
+	}
+	job.Checkpoints = checkpoints
+	job.UpdatedAt = time.Now().UTC()
+	return cleared, r.jobs.Save(ctx, job)
+}
+
 func (r *Runner) Pause(jobID string) bool {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -1433,10 +1468,12 @@ func (r *Runner) transferFolder(ctx context.Context, source Source, access servi
 	jobMu.Lock()
 	initialCheckpoint := job.Checkpoints[folder.ID]
 	jobMu.Unlock()
+	// With a checkpoint the source only reports changes, so the remaining
+	// count is unknown; its folder total still checks the destination.
 	estimateKnown := folder.EstimateKnown && initialCheckpoint == ""
 	result := FolderReconciliation{
 		SourceFolderID: folder.ID, SourceFolderName: folder.Name, SourceFolderType: folder.Type,
-		DestinationFolderID: destinationID, SourceItems: folder.Estimate, SourceItemsKnown: estimateKnown,
+		DestinationFolderID: destinationID, SourceItems: folder.Estimate, SourceItemsKnown: folder.EstimateKnown,
 		RemainingItems: max(0, folder.Estimate), RemainingItemsKnown: estimateKnown,
 		State: "running", StartedAt: time.Now().UTC(),
 	}
@@ -1525,9 +1562,16 @@ func (r *Runner) finishFolderReconciliation(ctx context.Context, access service.
 		result.State = "unverified"
 	} else {
 		result.DriftItems = result.DestinationItemsAfter - result.SourceItems
-		result.State = "matched"
-		if result.DriftItems != 0 {
+		switch {
+		case result.DriftItems < 0:
+			// The destination holds fewer items than the source folder:
+			// some were never imported. Re-reading the folder fetches them.
+			result.State = "missing"
+			result.Error = fmt.Sprintf("%d source item(s) are not in the destination folder; re-read the folder from the source", -result.DriftItems)
+		case result.DriftItems > 0:
 			result.State = "drift"
+		default:
+			result.State = "matched"
 		}
 	}
 	return result, nil
@@ -2438,11 +2482,19 @@ func (r *Runner) ensureFolder(ctx context.Context, access service.AccessContext,
 		job.FolderMap[source.ID] = folder.ID
 		return folder.ID, r.jobs.Save(ctx, *job)
 	}
+	mapped := ""
 	if id := job.FolderMap[source.ID]; id != "" {
 		if folder, err := r.space.GetFolder(ctx, access, id); err == nil && folder.Type == source.Type {
-			return id, nil
+			if source.Special == "" || normalizeSpecialUse(folder.SpecialUse) == normalizeSpecialUse(source.Special) {
+				return id, nil
+			}
+			// A well-known source folder recognised only now was mapped to
+			// an ordinary folder by an earlier run; it moves to the special
+			// folder below.
+			mapped = id
+		} else {
+			delete(job.FolderMap, source.ID)
 		}
-		delete(job.FolderMap, source.ID)
 	}
 	if source.Special != "" {
 		folders, err := r.space.ListFolders(ctx, access, service.FolderQuery{Type: source.Type})
@@ -2451,9 +2503,17 @@ func (r *Runner) ensureFolder(ctx context.Context, access service.AccessContext,
 		}
 		for _, folder := range folders {
 			if normalizeSpecialUse(folder.SpecialUse) == normalizeSpecialUse(source.Special) {
+				if mapped != "" {
+					if err := r.rehomeSyncedItems(ctx, access, job.SourceIdentity, mapped, folder.ID, folders); err != nil {
+						return "", fmt.Errorf("move %q into the %s folder: %w", source.Name, source.Special, err)
+					}
+				}
 				job.FolderMap[source.ID] = folder.ID
-				return folder.ID, nil
+				return folder.ID, r.jobs.Save(ctx, *job)
 			}
+		}
+		if mapped != "" {
+			return mapped, nil
 		}
 	}
 	parentID, parentPath := job.FolderMap[source.ParentID], ""
@@ -2500,6 +2560,53 @@ func (r *Runner) ensureFolder(ctx context.Context, access service.AccessContext,
 		return created.ID, r.jobs.Save(ctx, *job)
 	}
 	return "", fmt.Errorf("create destination folder %q: no non-conflicting name available", source.Name)
+}
+
+// rehomeSyncedItems moves the items this source imported into from into
+// to, and removes from when that leaves it empty with no subfolders. Other
+// items stay where they are. Moved items keep their source identity, so the
+// next pages find them instead of importing them again.
+func (r *Runner) rehomeSyncedItems(ctx context.Context, access service.AccessContext, sourceIdentity, from, to string, folders []model.Folder) error {
+	items, err := r.space.ListItems(ctx, access, from, service.ItemQuery{MetadataOnly: true})
+	if err != nil {
+		return err
+	}
+	remaining := 0
+	for _, item := range items {
+		if !syncedFrom(item, sourceIdentity) {
+			remaining++
+			continue
+		}
+		if _, err := r.space.MoveItem(ctx, access, item.ID, to, ""); err != nil {
+			return fmt.Errorf("move item %q: %w", item.ID, err)
+		}
+	}
+	if remaining > 0 {
+		return nil
+	}
+	source, err := r.space.GetFolder(ctx, access, from)
+	if err != nil {
+		return err
+	}
+	for _, folder := range folders {
+		if folder.ParentID == from || strings.HasPrefix(folder.Path, source.Path+"/") {
+			return nil
+		}
+	}
+	return r.space.DeleteFolder(ctx, access, from)
+}
+
+// syncedFrom reports whether item was imported from the source identity.
+func syncedFrom(item model.Item, sourceIdentity string) bool {
+	if sourceIdentity == "" {
+		return false
+	}
+	for namespace := range item.ExternalIDs {
+		if namespace == sourceIdentity {
+			return true
+		}
+	}
+	return item.Headers[migrationSourceHeader] == sourceIdentity
 }
 
 func destinationAlreadyMapped(folderMap map[string]string, sourceID, destinationID string) bool {

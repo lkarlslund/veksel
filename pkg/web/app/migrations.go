@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"net/http"
 	"sort"
@@ -482,6 +483,35 @@ func (h *Handler) apiDeleteMigration(w http.ResponseWriter, r *http.Request) {
 	}
 	h.audit.Log(currentActor(r).ID, "sync.delete", job.ID, map[string]string{"source": job.SourceType, "destination": job.DestinationID})
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// apiRereadMigration makes the next run read the job's folders, or the
+// named ones, from the beginning.
+func (h *Handler) apiRereadMigration(w http.ResponseWriter, r *http.Request) {
+	job, ok := h.authorizedMigration(w, r, r.PathValue("id"))
+	if !ok {
+		return
+	}
+	var request struct {
+		FolderIDs []string `json:"folder_ids"`
+	}
+	if r.ContentLength != 0 {
+		if err := decodeJSON(r, &request); err != nil {
+			jsonError(w, http.StatusBadRequest, err.Error())
+			return
+		}
+	}
+	cleared, err := h.migrationRunner.Reread(r.Context(), job.ID, request.FolderIDs)
+	if errors.Is(err, migration.ErrJobRunning) {
+		jsonError(w, http.StatusConflict, "pause the sync job before re-reading its folders")
+		return
+	}
+	if err != nil {
+		apiError(w, err)
+		return
+	}
+	h.audit.Log(currentActor(r).ID, "sync.reread", job.ID, map[string]string{"folders": strconv.Itoa(cleared)})
+	jsonResponse(w, http.StatusOK, map[string]int{"folders": cleared})
 }
 
 func (h *Handler) apiPauseMigration(w http.ResponseWriter, r *http.Request) {

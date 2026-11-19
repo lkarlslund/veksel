@@ -83,6 +83,10 @@ func (s *Source) Folders(ctx context.Context) ([]migration.Folder, error) {
 		RemoteID string
 		SourceID string
 	}
+	wellKnown, err := s.wellKnownFolders(ctx)
+	if err != nil {
+		return nil, err
+	}
 	queue := []pendingParent{{RemoteID: "msgfolderroot"}}
 	seen := make(map[string]struct{})
 	result := make([]migration.Folder, 0, 16)
@@ -117,7 +121,12 @@ func (s *Source) Folders(ctx context.Context) ([]migration.Folder, error) {
 				folder.Estimate = estimate
 				folder.EstimateKnown = true
 			}
-			folder.Special = specialFolder(folder.Name)
+			switch {
+			case wellKnown != nil:
+				folder.Special = wellKnown[remoteID]
+			case parent.SourceID == "":
+				folder.Special = specialFolderByName(folder.Name)
+			}
 			s.folders[folder.ID] = folder
 			result = append(result, folder)
 			queue = append(queue, pendingParent{RemoteID: remoteID, SourceID: remoteID})
@@ -177,6 +186,9 @@ func (s *Source) Items(ctx context.Context, folder migration.Folder, token strin
 // defaultMaxResponseBytes bounds one EWS response held in memory.
 const defaultMaxResponseBytes = 64 << 20
 
+// errFault marks a SOAP fault: the server understood the request and refused it.
+var errFault = errors.New("EWS fault")
+
 // errResponseTooLarge marks a response over the source's size limit.
 var errResponseTooLarge = errors.New("EWS response exceeds the size limit")
 
@@ -216,6 +228,10 @@ func (s *Source) getItems(ctx context.Context, ids []string, versions map[string
 	}
 	var items []migration.Item
 	var failures []migration.ItemFailure
+	// Every requested ID ends up imported or as an item failure: a message
+	// Exchange leaves out must not vanish while the folder advances.
+	// GetItem answers in request order, one response message per ID.
+	answered := make([]bool, len(ids))
 	messages := root.descendant("ResponseMessages")
 	if messages == nil {
 		return nil, nil, errors.New("EWS GetItem returned no response messages")
@@ -231,6 +247,9 @@ func (s *Source) getItems(ctx context.Context, ids []string, versions map[string
 				reason = message.descendantText("ResponseCode")
 			}
 			failures = append(failures, migration.ItemFailure{ID: id, Error: "EWS GetItem: " + reason})
+			if index < len(ids) {
+				answered[index] = true
+			}
 			continue
 		}
 		wire := message.descendant("Items")
@@ -239,21 +258,33 @@ func (s *Source) getItems(ctx context.Context, ids []string, versions map[string
 		}
 		item := wire.Children[0]
 		idNode := item.descendant("ItemId")
+		if idNode == nil || idNode.attr("Id") == "" {
+			continue
+		}
+		id := idNode.attr("Id")
+		if index < len(ids) {
+			answered[index] = true
+		}
 		mimeNode := item.descendant("MimeContent")
-		if idNode == nil || mimeNode == nil {
+		if mimeNode == nil {
+			failures = append(failures, migration.ItemFailure{ID: id, Error: "EWS returned " + item.Name.Local + " without MIME content"})
 			continue
 		}
 		data, err := base64.StdEncoding.DecodeString(strings.TrimSpace(mimeNode.Text))
 		if err != nil {
-			failures = append(failures, migration.ItemFailure{ID: idNode.attr("Id"), Error: "decode EWS MIME item: " + err.Error()})
+			failures = append(failures, migration.ItemFailure{ID: id, Error: "decode EWS MIME item: " + err.Error()})
 			continue
 		}
-		id := idNode.attr("Id")
 		version := idNode.attr("ChangeKey")
 		if version == "" {
 			version = versions[id]
 		}
 		items = append(items, migration.Item{ID: id, Version: version, Data: data, Headers: model.ParseItemHeaders(data), InternalDate: parseTime(item.descendantText("DateTimeReceived"))})
+	}
+	for index, id := range ids {
+		if !answered[index] {
+			failures = append(failures, migration.ItemFailure{ID: id, Error: "EWS GetItem returned no content for the item"})
+		}
 	}
 	return items, failures, nil
 }
@@ -302,7 +333,7 @@ func (s *Source) callRaw(ctx context.Context, operation string) (*xmlNode, error
 		return nil, fmt.Errorf("decode EWS response: %w", err)
 	}
 	if fault := root.descendant("Fault"); fault != nil {
-		return nil, fmt.Errorf("EWS fault: %s", fault.descendantText("faultstring"))
+		return nil, fmt.Errorf("%w: %s", errFault, fault.descendantText("faultstring"))
 	}
 	return root, nil
 }
@@ -325,21 +356,79 @@ func folderType(class string) model.FolderType {
 	}
 }
 
-func specialFolder(name string) string {
-	switch strings.ToLower(name) {
-	case "inbox":
-		return model.SpecialUseInbox
-	case "sent", "sent items":
-		return model.SpecialUseSent
-	case "drafts":
-		return model.SpecialUseDrafts
-	case "trash", "deleted items":
-		return model.SpecialUseTrash
-	case "junk", "junk email":
-		return model.SpecialUseJunk
-	default:
-		return ""
+// wellKnownSpecialUse maps Exchange's distinguished folder IDs to special
+// uses. Exchange names these folders in the mailbox's language, so the IDs,
+// not the display names, identify them.
+var wellKnownSpecialUse = []struct{ id, special string }{
+	{"inbox", model.SpecialUseInbox},
+	{"sentitems", model.SpecialUseSent},
+	{"drafts", model.SpecialUseDrafts},
+	{"deleteditems", model.SpecialUseTrash},
+	{"junkemail", model.SpecialUseJunk},
+}
+
+// wellKnownFolders asks Exchange which folders are its well-known ones and
+// returns their special use by folder ID. It returns nil when the server
+// answers none of them, and the caller falls back to display names.
+func (s *Source) wellKnownFolders(ctx context.Context) (map[string]string, error) {
+	var ids strings.Builder
+	for _, folder := range wellKnownSpecialUse {
+		ids.WriteString(`<t:DistinguishedFolderId Id="` + folder.id + `"/>`)
 	}
+	root, err := s.callRaw(ctx, `<m:GetFolder><m:FolderShape><t:BaseShape>IdOnly</t:BaseShape></m:FolderShape><m:FolderIds>`+ids.String()+`</m:FolderIds></m:GetFolder>`)
+	if errors.Is(err, errFault) {
+		return nil, nil // a server without GetFolder: names identify them
+	}
+	if err != nil {
+		return nil, fmt.Errorf("identify well-known folders: %w", err)
+	}
+	messages := root.descendant("ResponseMessages")
+	if messages == nil {
+		return nil, nil
+	}
+	result := make(map[string]string, len(wellKnownSpecialUse))
+	for index, message := range messages.Children {
+		if index >= len(wellKnownSpecialUse) || !strings.EqualFold(message.attr("ResponseClass"), "Success") {
+			continue
+		}
+		if id := message.descendant("FolderId"); id != nil && id.attr("Id") != "" {
+			result[id.attr("Id")] = wellKnownSpecialUse[index].special
+		}
+	}
+	if len(result) == 0 {
+		return nil, nil
+	}
+	return result, nil
+}
+
+// specialFolderNames are the display names Exchange and Outlook give the
+// well-known folders in the languages Veksel supports, for servers that do
+// not answer GetFolder for distinguished folders.
+var specialFolderNames = map[string]string{
+	// English
+	"inbox": model.SpecialUseInbox, "sent": model.SpecialUseSent, "sent items": model.SpecialUseSent,
+	"drafts": model.SpecialUseDrafts, "trash": model.SpecialUseTrash, "deleted items": model.SpecialUseTrash,
+	"junk": model.SpecialUseJunk, "junk email": model.SpecialUseJunk, "junk e-mail": model.SpecialUseJunk,
+	// Danish
+	"indbakke": model.SpecialUseInbox, "sendt post": model.SpecialUseSent, "sendte elementer": model.SpecialUseSent,
+	"kladder": model.SpecialUseDrafts, "slettet post": model.SpecialUseTrash, "slettede elementer": model.SpecialUseTrash,
+	"uønsket mail": model.SpecialUseJunk, "uønsket e-mail": model.SpecialUseJunk,
+	// Norwegian
+	"innboks": model.SpecialUseInbox, "sendte e-poster": model.SpecialUseSent, "utkast": model.SpecialUseDrafts,
+	"søppelpost": model.SpecialUseJunk, "useriøs e-post": model.SpecialUseJunk,
+	// Swedish
+	"inkorgen": model.SpecialUseInbox, "skickat": model.SpecialUseSent, "skickade objekt": model.SpecialUseSent,
+	"borttaget": model.SpecialUseTrash, "borttagna objekt": model.SpecialUseTrash, "skräppost": model.SpecialUseJunk,
+	// German
+	"posteingang": model.SpecialUseInbox, "gesendete elemente": model.SpecialUseSent, "gesendete objekte": model.SpecialUseSent,
+	"entwürfe": model.SpecialUseDrafts, "gelöschte elemente": model.SpecialUseTrash, "gelöschte objekte": model.SpecialUseTrash,
+	"junk-e-mail": model.SpecialUseJunk,
+}
+
+// specialFolderByName recognises a top-level well-known folder by its
+// display name.
+func specialFolderByName(name string) string {
+	return specialFolderNames[strings.ToLower(strings.TrimSpace(name))]
 }
 
 func xmlEscape(value string) string {

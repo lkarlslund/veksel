@@ -408,6 +408,7 @@ func (h *Handler) registerAPI(api apiRouter) {
 	api.handle("GET /api/v1/sync-jobs/{id}/runs", h.apiMigrationRuns)
 	api.handle("GET /api/v1/sync-jobs/{id}/runs/{run_id}", h.apiMigrationRun)
 	api.handle("POST /api/v1/sync-jobs/{id}/pause", h.apiPauseMigration)
+	api.handle("POST /api/v1/sync-jobs/{id}/reread", h.apiRereadMigration)
 	api.handle("DELETE /api/v1/sync-jobs/{id}", h.apiDeleteMigration)
 }
 
