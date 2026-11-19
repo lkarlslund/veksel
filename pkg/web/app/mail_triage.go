@@ -94,7 +94,7 @@ func (h *Handler) apiWorkspaceMailList(w http.ResponseWriter, r *http.Request) {
 	page, err := h.mailIndex.List(r.Context(), h.folderSpace, webAccess(currentActor(r), currentSubject(r), currentActingMode(r)), folder, query)
 	if err == nil {
 		err = h.annotateMailPage(r.Context(), currentSubject(r).ID, &page)
-		h.annotateMailCategories(r.Context(), currentActor(r).ID, &page)
+		h.annotateMailCategories(r.Context(), settingsUserID(r), &page)
 	}
 	if err != nil {
 		apiError(w, err)

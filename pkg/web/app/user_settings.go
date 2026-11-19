@@ -40,16 +40,23 @@ func (h *Handler) handleUserSettings(w http.ResponseWriter, r *http.Request) {
 		section = "migration"
 	}
 	session, _ := sessionFromContext(r.Context())
+	if supportAccess(r) && supportAccessSections[section] {
+		http.Redirect(w, r, "/app/settings/profile", http.StatusFound)
+		return
+	}
 	scope := h.adminScopeFor(r.Context(), session.ActorID)
 	h.render(w, "app.gohtml", map[string]any{
-		"Page": "settings", "SettingsSection": section, "Session": session,
+		"Page": "settings", "SettingsSection": section, "Session": session, "SupportAccess": supportAccess(r),
 		"IsAdmin": scope.system, "DomainAdmin": !scope.system && scope.any(), "CSRF": h.csrfValue(r),
 	}, http.StatusOK)
 }
 
 type userSettingsResponse struct {
-	ID              string                 `json:"id"`
-	DisplayName     string                 `json:"display_name"`
+	ID          string `json:"id"`
+	DisplayName string `json:"display_name"`
+	// SupportAccess is set while an administrator works as this account;
+	// its password and data export stay with the account's owner.
+	SupportAccess   bool                   `json:"support_access,omitempty"`
 	Identities      []userIdentityResponse `json:"identities"`
 	VacationEnabled bool                   `json:"vacation_enabled"`
 	VacationStart   string                 `json:"vacation_start"`
@@ -88,7 +95,7 @@ type userIdentityResponse struct {
 }
 
 func (h *Handler) apiUserSettings(w http.ResponseWriter, r *http.Request) {
-	userID := currentActor(r).ID
+	userID := settingsUserID(r)
 	user, err := h.users.Get(r.Context(), userID)
 	if err != nil {
 		apiError(w, err)
@@ -121,7 +128,7 @@ func (h *Handler) apiUserSettings(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if h.authorization != nil {
-		delegated, err := h.authorization.ListDelegatedSendingIdentities(r.Context(), currentActor(r), time.Now().UTC())
+		delegated, err := h.authorization.ListDelegatedSendingIdentities(r.Context(), model.PrincipalRef{Kind: model.PrincipalUser, ID: userID}, time.Now().UTC())
 		if err != nil {
 			apiError(w, err)
 			return
@@ -146,7 +153,7 @@ func (h *Handler) apiUserSettings(w http.ResponseWriter, r *http.Request) {
 		return value.UTC().Format(time.RFC3339)
 	}
 	jsonResponse(w, http.StatusOK, userSettingsResponse{
-		ID: user.ID, DisplayName: user.DisplayName, Identities: addresses,
+		ID: user.ID, DisplayName: user.DisplayName, Identities: addresses, SupportAccess: supportAccess(r),
 		VacationEnabled: user.VacationEnabled, VacationStart: formatTime(user.VacationStart),
 		VacationEnd: formatTime(user.VacationEnd), VacationSubject: user.VacationSubject,
 		VacationMessage: user.VacationMessage, Source: user.Source, MailPreferences: mailPreferencesView(user.MailPreferences),
@@ -186,7 +193,7 @@ func (h *Handler) apiUserMailSignature(w http.ResponseWriter, r *http.Request) {
 	if request.Text == "" {
 		request.NewMessages, request.RepliesForwards = false, false
 	}
-	userID := currentActor(r).ID
+	userID := settingsUserID(r)
 	address := strings.ToLower(strings.TrimSpace(r.PathValue("address")))
 	if err := h.users.UpdateMailSignature(r.Context(), userID, address, request); err != nil {
 		if errors.Is(err, store.ErrNotFound) {
@@ -196,7 +203,7 @@ func (h *Handler) apiUserMailSignature(w http.ResponseWriter, r *http.Request) {
 		apiError(w, err)
 		return
 	}
-	h.audit.Log(userID, "signature.update", address, map[string]string{
+	h.auditSettings(r, "signature.update", address, map[string]string{
 		"configured": strconv.FormatBool(request.Text != ""), "new_messages": strconv.FormatBool(request.NewMessages),
 		"replies_forwards": strconv.FormatBool(request.RepliesForwards), "bytes": strconv.Itoa(len(request.Text)), "html": strconv.FormatBool(request.HTML != ""),
 	})
@@ -221,12 +228,12 @@ func (h *Handler) apiUserMailPreferences(w http.ResponseWriter, r *http.Request)
 	}
 	undo := request.UndoSendSeconds
 	preferences := model.MailPreferences{UndoSendSeconds: &undo, Shortcuts: request.Shortcuts}
-	userID := currentActor(r).ID
+	userID := settingsUserID(r)
 	if err := h.users.UpdateMailPreferences(r.Context(), userID, preferences); err != nil {
 		apiError(w, err)
 		return
 	}
-	h.audit.Log(userID, "mail.preferences.update", userID, map[string]string{"undo_send_seconds": strconv.Itoa(undo), "shortcuts": request.Shortcuts})
+	h.auditSettings(r, "mail.preferences.update", userID, map[string]string{"undo_send_seconds": strconv.Itoa(undo), "shortcuts": request.Shortcuts})
 	jsonResponse(w, http.StatusOK, mailPreferencesView(preferences))
 }
 
@@ -242,12 +249,12 @@ func (h *Handler) apiUserDisplayPreferences(w http.ResponseWriter, r *http.Reque
 		jsonError(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	userID := currentActor(r).ID
+	userID := settingsUserID(r)
 	if err := h.users.UpdateDisplayPreferences(r.Context(), userID, request); err != nil {
 		apiError(w, err)
 		return
 	}
-	h.audit.Log(userID, "user.display_preferences.update", userID, map[string]string{
+	h.auditSettings(r, "user.display_preferences.update", userID, map[string]string{
 		"time_zone": request.TimeZone, "time_format": request.TimeFormat, "date_order": request.DateOrder,
 		"week_start": strconv.Itoa(request.WeekStart), "density": request.Density, "reading_pane": request.ReadingPane,
 	})
@@ -266,12 +273,12 @@ func (h *Handler) apiUserNotificationPreferences(w http.ResponseWriter, r *http.
 		jsonError(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	userID := currentActor(r).ID
+	userID := settingsUserID(r)
 	if err := h.users.UpdateNotificationPreferences(r.Context(), userID, request); err != nil {
 		apiError(w, err)
 		return
 	}
-	h.audit.Log(userID, "user.notification_preferences.update", userID, map[string]string{
+	h.auditSettings(r, "user.notification_preferences.update", userID, map[string]string{
 		"new_mail": strconv.FormatBool(request.NewMail), "favorites": strconv.FormatBool(request.Favorites),
 		"meetings": strconv.FormatBool(request.Meetings), "follow_ups": strconv.FormatBool(request.FollowUps),
 		"sound": strconv.FormatBool(request.Sound), "quiet_hours": strconv.FormatBool(request.QuietHours),
@@ -313,7 +320,11 @@ func (h *Handler) apiUserProfile(w http.ResponseWriter, r *http.Request) {
 		jsonError(w, http.StatusBadRequest, "display name is too long")
 		return
 	}
-	userID := currentActor(r).ID
+	userID := settingsUserID(r)
+	if request.NewPassword != "" && supportAccess(r) {
+		jsonError(w, http.StatusForbidden, "a password cannot be changed during support access; reset it under Administration")
+		return
+	}
 	var passwordHash string
 	if request.NewPassword != "" {
 		if len(request.NewPassword) < 8 {
@@ -366,7 +377,7 @@ func (h *Handler) apiUserProfile(w http.ResponseWriter, r *http.Request) {
 	if passwordHash != "" {
 		h.recordBrowserSessionRevocations(userID, revoked, "password_changed")
 	}
-	h.audit.Log(userID, "profile.update", userID, map[string]string{
+	h.auditSettings(r, "profile.update", userID, map[string]string{
 		"display_name_changed": strconv.FormatBool(request.DisplayName != nil),
 		"password_changed":     strconv.FormatBool(passwordHash != ""),
 		"sessions_revoked":     strconv.Itoa(len(revoked)),
@@ -416,11 +427,11 @@ func (h *Handler) apiUserVacation(w http.ResponseWriter, r *http.Request) {
 		jsonError(w, http.StatusBadRequest, "end time must be after start time")
 		return
 	}
-	userID := currentActor(r).ID
+	userID := settingsUserID(r)
 	if err := h.users.UpdateVacation(r.Context(), userID, request.Enabled, start, end, request.Subject, request.Message); err != nil {
 		apiError(w, err)
 		return
 	}
-	h.audit.Log(userID, "vacation.update", userID, map[string]string{"enabled": strconv.FormatBool(request.Enabled)})
+	h.auditSettings(r, "vacation.update", userID, map[string]string{"enabled": strconv.FormatBool(request.Enabled)})
 	jsonResponse(w, http.StatusOK, map[string]bool{"enabled": request.Enabled})
 }

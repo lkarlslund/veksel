@@ -43,7 +43,7 @@ func (h *Handler) apiEASDevices(w http.ResponseWriter, r *http.Request) {
 		jsonResponse(w, http.StatusOK, map[string]any{"available": false, "devices": []EASDevice{}})
 		return
 	}
-	devices, err := h.easDevices.ListEASDevices(r.Context(), currentActor(r).ID)
+	devices, err := h.easDevices.ListEASDevices(r.Context(), settingsUserID(r))
 	if err != nil {
 		jsonError(w, http.StatusServiceUnavailable, "device inventory is unavailable")
 		return
@@ -64,13 +64,13 @@ func (h *Handler) apiRemoveEASDevice(w http.ResponseWriter, r *http.Request) {
 		jsonError(w, http.StatusBadRequest, "invalid device ID")
 		return
 	}
-	userID := currentActor(r).ID
+	userID := settingsUserID(r)
 	removed, err := h.easDevices.RemoveEASDevice(r.Context(), userID, deviceID)
 	if err != nil {
 		jsonError(w, http.StatusServiceUnavailable, "device partnership could not be removed")
 		return
 	}
-	h.audit.Log(userID, "eas.device.remove", deviceID, map[string]string{"removed": boolString(removed)})
+	h.auditSettings(r, "eas.device.remove", deviceID, map[string]string{"removed": boolString(removed)})
 	jsonResponse(w, http.StatusOK, map[string]bool{"removed": removed})
 }
 
@@ -87,7 +87,7 @@ func (h *Handler) apiWipeEASDevice(w http.ResponseWriter, r *http.Request) {
 		jsonError(w, http.StatusBadRequest, "invalid device ID")
 		return
 	}
-	userID := currentActor(r).ID
+	userID := settingsUserID(r)
 	found, err := h.easDevices.WipeEASDevice(r.Context(), userID, deviceID)
 	if err != nil {
 		jsonError(w, http.StatusServiceUnavailable, "remote wipe could not be requested")
@@ -97,7 +97,7 @@ func (h *Handler) apiWipeEASDevice(w http.ResponseWriter, r *http.Request) {
 		jsonError(w, http.StatusNotFound, "device partnership not found")
 		return
 	}
-	h.audit.Log(userID, "eas.device.wipe", deviceID, nil)
+	h.auditSettings(r, "eas.device.wipe", deviceID, nil)
 	jsonResponse(w, http.StatusOK, map[string]bool{"wipe_requested": true})
 }
 

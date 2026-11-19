@@ -155,12 +155,12 @@ func (h *Handler) remoteImagesAllowed(r *http.Request, from string) bool {
 	if err != nil {
 		return false
 	}
-	user, err := h.users.Get(r.Context(), currentActor(r).ID)
+	user, err := h.users.Get(r.Context(), settingsUserID(r))
 	return err == nil && slices.Contains(user.RemoteImageSenders, strings.ToLower(address.Address))
 }
 
 func (h *Handler) apiRemoteImageSenders(w http.ResponseWriter, r *http.Request) {
-	user, err := h.users.Get(r.Context(), currentActor(r).ID)
+	user, err := h.users.Get(r.Context(), settingsUserID(r))
 	if err != nil {
 		apiError(w, err)
 		return
@@ -175,13 +175,13 @@ func (h *Handler) apiSetRemoteImageSender(w http.ResponseWriter, r *http.Request
 		jsonError(w, http.StatusBadRequest, "a valid sender address is required")
 		return
 	}
-	userID := currentActor(r).ID
+	userID := settingsUserID(r)
 	senders, err := h.users.SetRemoteImageSender(r.Context(), userID, address.Address, r.Method == http.MethodPut)
 	if err != nil {
 		apiError(w, err)
 		return
 	}
-	h.audit.Log(userID, "mail.remote_images."+map[bool]string{true: "allow", false: "remove"}[r.Method == http.MethodPut], strings.ToLower(address.Address), nil)
+	h.auditSettings(r, "mail.remote_images."+map[bool]string{true: "allow", false: "remove"}[r.Method == http.MethodPut], strings.ToLower(address.Address), nil)
 	jsonResponse(w, http.StatusOK, map[string]any{"senders": nonNilStrings(senders)})
 }
 

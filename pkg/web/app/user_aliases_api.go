@@ -112,7 +112,7 @@ func (h *Handler) userAliasDomains(r *http.Request, userID string) ([]string, er
 }
 
 func (h *Handler) apiUserAliases(w http.ResponseWriter, r *http.Request) {
-	userID := currentActor(r).ID
+	userID := settingsUserID(r)
 	aliases, err := h.ts.UserAliasStore().ListForUser(r.Context(), userID)
 	if err != nil {
 		apiError(w, err)
@@ -144,7 +144,7 @@ func (h *Handler) apiCreateUserAlias(w http.ResponseWriter, r *http.Request) {
 		jsonError(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	userID := currentActor(r).ID
+	userID := settingsUserID(r)
 	policy := h.currentUserAliasPolicy()
 	if !policy.enabled {
 		jsonError(w, http.StatusForbidden, "temporary aliases are disabled")
@@ -185,7 +185,7 @@ func (h *Handler) apiCreateUserAlias(w http.ResponseWriter, r *http.Request) {
 		userAliasError(w, err)
 		return
 	}
-	h.audit.Log(userID, "user_alias.create", alias.Address, map[string]string{"domain": domain})
+	h.auditSettings(r, "user_alias.create", alias.Address, map[string]string{"domain": domain})
 	jsonResponse(w, http.StatusCreated, projectUserAlias(alias, time.Now(), false))
 }
 
@@ -210,24 +210,24 @@ func (h *Handler) apiUpdateUserAlias(w http.ResponseWriter, r *http.Request) {
 		}
 		update.Expiry = &expiry
 	}
-	userID := currentActor(r).ID
+	userID := settingsUserID(r)
 	alias, err := h.ts.UserAliasStore().Update(r.Context(), r.PathValue("address"), userID, update)
 	if err != nil {
 		userAliasError(w, err)
 		return
 	}
-	h.audit.Log(userID, "user_alias.update", alias.Address, nil)
+	h.auditSettings(r, "user_alias.update", alias.Address, nil)
 	jsonResponse(w, http.StatusOK, projectUserAlias(alias, time.Now(), false))
 }
 
 func (h *Handler) apiDeleteUserAlias(w http.ResponseWriter, r *http.Request) {
-	userID := currentActor(r).ID
+	userID := settingsUserID(r)
 	address := strings.ToLower(strings.TrimSpace(r.PathValue("address")))
 	if err := h.ts.UserAliasStore().Delete(r.Context(), address, userID); err != nil {
 		userAliasError(w, err)
 		return
 	}
-	h.audit.Log(userID, "user_alias.delete", address, nil)
+	h.auditSettings(r, "user_alias.delete", address, nil)
 	w.WriteHeader(http.StatusNoContent)
 }
 

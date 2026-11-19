@@ -107,6 +107,9 @@ func (a apiRouter) register(pattern string, route apiRoute, handler http.Handler
 	route.Method, route.Path, _ = strings.Cut(pattern, " ")
 	route.Summary = handlerSummary(handler)
 	var next http.Handler = handler
+	if supportAccessExcluded(route.Method, route.Path) {
+		next = refuseDuringSupportAccess(next)
+	}
 	if route.Scope == scopeAlways || route.Scope == scopeSafeMethods && safeMethod(route.Method) {
 		next = requestScoped(next)
 	}

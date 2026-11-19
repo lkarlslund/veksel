@@ -20,7 +20,7 @@ type quarantineDigestPreferenceResponse struct {
 }
 
 func (h *Handler) apiQuarantineDigestPreference(w http.ResponseWriter, r *http.Request) {
-	userID := currentActor(r).ID
+	userID := settingsUserID(r)
 	digests := h.quarantineDigests.Load()
 	if digests == nil {
 		jsonResponse(w, http.StatusOK, quarantineDigestPreferenceResponse{Available: false, Enabled: false, Preference: virus.QuarantineDigestPreference{UserID: userID, Schedule: virus.QuarantineDigestOff, HourUTC: 8, Weekday: int(time.Monday)}})
@@ -49,13 +49,13 @@ func (h *Handler) apiUpdateQuarantineDigestPreference(w http.ResponseWriter, r *
 		jsonError(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	userID := currentActor(r).ID
+	userID := settingsUserID(r)
 	preference, err := digests.SetPreference(r.Context(), virus.QuarantineDigestPreference{UserID: userID, Schedule: request.Schedule, HourUTC: request.HourUTC, Weekday: request.Weekday})
 	if err != nil {
 		jsonError(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	h.audit.Log(userID, "quarantine.digest.update", userID, map[string]string{"schedule": preference.Schedule})
+	h.auditSettings(r, "quarantine.digest.update", userID, map[string]string{"schedule": preference.Schedule})
 	h.events.Publish(events.Event{Type: "quarantine.digest.updated", Resource: userID, Recipients: []string{userID}})
 	jsonResponse(w, http.StatusOK, quarantineDigestPreferenceResponse{Available: true, Enabled: true, Preference: preference})
 }

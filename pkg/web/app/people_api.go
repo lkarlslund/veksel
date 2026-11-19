@@ -283,7 +283,7 @@ func peopleScore(suggestion peopleSuggestion, query string, now time.Time) int {
 }
 
 func (h *Handler) favoriteContacts(r *http.Request) map[string]bool {
-	user, err := h.users.Get(r.Context(), currentActor(r).ID)
+	user, err := h.users.Get(r.Context(), settingsUserID(r))
 	if err != nil {
 		return nil
 	}
@@ -559,7 +559,7 @@ type favoriteContact struct {
 // favoriteSummaries resolves the actor's favorites that are still readable
 // in the current acting context, in starring order.
 func (h *Handler) favoriteSummaries(r *http.Request) ([]favoriteContact, error) {
-	user, err := h.users.Get(r.Context(), currentActor(r).ID)
+	user, err := h.users.Get(r.Context(), settingsUserID(r))
 	if err != nil {
 		return nil, err
 	}
@@ -635,7 +635,7 @@ func (h *Handler) apiSetContactFavorite(w http.ResponseWriter, r *http.Request) 
 			return
 		}
 	}
-	actor := currentActor(r).ID
+	actor := settingsUserID(r)
 	ids, err := h.users.SetContactFavorite(r.Context(), actor, itemID, favorite)
 	if err != nil {
 		apiError(w, err)
@@ -995,7 +995,7 @@ func (h *Handler) apiSearchSuggestions(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if h.savedSearches != nil {
-		definitions, err := h.savedSearches.List(r.Context(), currentActor(r).ID)
+		definitions, err := h.savedSearches.List(r.Context(), settingsUserID(r))
 		if err != nil {
 			apiError(w, err)
 			return

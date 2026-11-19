@@ -16,7 +16,7 @@ type messageTemplateRequest struct {
 }
 
 func (h *Handler) apiMessageTemplates(w http.ResponseWriter, r *http.Request) {
-	definitions, err := h.messageTemplates.List(r.Context(), currentActor(r).ID)
+	definitions, err := h.messageTemplates.List(r.Context(), settingsUserID(r))
 	if err != nil {
 		apiError(w, err)
 		return
@@ -29,12 +29,12 @@ func (h *Handler) apiCreateMessageTemplate(w http.ResponseWriter, r *http.Reques
 	if !ok {
 		return
 	}
-	actor := currentActor(r).ID
+	actor := settingsUserID(r)
 	definition, err := h.messageTemplates.Create(r.Context(), actor, request.Name, request.Subject, request.Body)
 	if messageTemplateError(w, err) {
 		return
 	}
-	h.audit.Log(actor, "message_template.create", definition.ID, nil)
+	h.auditSettings(r, "message_template.create", definition.ID, nil)
 	h.events.Publish(events.Event{Type: "message_template.created", Resource: definition.ID, Recipients: []string{actor}})
 	jsonResponse(w, http.StatusCreated, definition)
 }
@@ -44,22 +44,22 @@ func (h *Handler) apiUpdateMessageTemplate(w http.ResponseWriter, r *http.Reques
 	if !ok {
 		return
 	}
-	actor := currentActor(r).ID
+	actor := settingsUserID(r)
 	definition, err := h.messageTemplates.Update(r.Context(), actor, r.PathValue("id"), request.Name, request.Subject, request.Body)
 	if messageTemplateError(w, err) {
 		return
 	}
-	h.audit.Log(actor, "message_template.update", definition.ID, nil)
+	h.auditSettings(r, "message_template.update", definition.ID, nil)
 	h.events.Publish(events.Event{Type: "message_template.updated", Resource: definition.ID, Recipients: []string{actor}})
 	jsonResponse(w, http.StatusOK, definition)
 }
 
 func (h *Handler) apiDeleteMessageTemplate(w http.ResponseWriter, r *http.Request) {
-	actor, id := currentActor(r).ID, r.PathValue("id")
+	actor, id := settingsUserID(r), r.PathValue("id")
 	if messageTemplateError(w, h.messageTemplates.Delete(r.Context(), actor, id)) {
 		return
 	}
-	h.audit.Log(actor, "message_template.delete", id, nil)
+	h.auditSettings(r, "message_template.delete", id, nil)
 	h.events.Publish(events.Event{Type: "message_template.deleted", Resource: id, Recipients: []string{actor}})
 	w.WriteHeader(http.StatusNoContent)
 }

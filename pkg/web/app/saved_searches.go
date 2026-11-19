@@ -16,7 +16,7 @@ type savedSearchRequest struct {
 }
 
 func (h *Handler) apiSavedSearches(w http.ResponseWriter, r *http.Request) {
-	definitions, err := h.savedSearches.List(r.Context(), currentActor(r).ID)
+	definitions, err := h.savedSearches.List(r.Context(), settingsUserID(r))
 	if err != nil {
 		apiError(w, err)
 		return
@@ -29,12 +29,12 @@ func (h *Handler) apiCreateSavedSearch(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	actor := currentActor(r).ID
+	actor := settingsUserID(r)
 	definition, err := h.savedSearches.Create(r.Context(), actor, request.Name, request.Query)
 	if savedSearchError(w, err) {
 		return
 	}
-	h.audit.Log(actor, "saved_search.create", definition.ID, nil)
+	h.auditSettings(r, "saved_search.create", definition.ID, nil)
 	h.events.Publish(events.Event{Type: "saved_search.created", Resource: definition.ID, Recipients: []string{actor}})
 	jsonResponse(w, http.StatusCreated, definition)
 }
@@ -44,22 +44,22 @@ func (h *Handler) apiUpdateSavedSearch(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	actor := currentActor(r).ID
+	actor := settingsUserID(r)
 	definition, err := h.savedSearches.Update(r.Context(), actor, r.PathValue("id"), request.Name, request.Query)
 	if savedSearchError(w, err) {
 		return
 	}
-	h.audit.Log(actor, "saved_search.update", definition.ID, nil)
+	h.auditSettings(r, "saved_search.update", definition.ID, nil)
 	h.events.Publish(events.Event{Type: "saved_search.updated", Resource: definition.ID, Recipients: []string{actor}})
 	jsonResponse(w, http.StatusOK, definition)
 }
 
 func (h *Handler) apiDeleteSavedSearch(w http.ResponseWriter, r *http.Request) {
-	actor, id := currentActor(r).ID, r.PathValue("id")
+	actor, id := settingsUserID(r), r.PathValue("id")
 	if savedSearchError(w, h.savedSearches.Delete(r.Context(), actor, id)) {
 		return
 	}
-	h.audit.Log(actor, "saved_search.delete", id, nil)
+	h.auditSettings(r, "saved_search.delete", id, nil)
 	h.events.Publish(events.Event{Type: "saved_search.deleted", Resource: id, Recipients: []string{actor}})
 	w.WriteHeader(http.StatusNoContent)
 }

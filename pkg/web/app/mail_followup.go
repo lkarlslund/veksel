@@ -164,7 +164,7 @@ func (h *Handler) apiWorkspaceMailFollowUps(w http.ResponseWriter, r *http.Reque
 		apiError(w, err)
 		return
 	}
-	h.annotateMailCategories(r.Context(), currentActor(r).ID, &page)
+	h.annotateMailCategories(r.Context(), settingsUserID(r), &page)
 	for i := range rows {
 		rows[i].Summary = page.Items[i]
 	}

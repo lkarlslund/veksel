@@ -46,7 +46,7 @@ func (h *Handler) userCategories(ctx context.Context, userID string) ([]model.Ca
 }
 
 func (h *Handler) apiUserCategories(w http.ResponseWriter, r *http.Request) {
-	list, defaults, err := h.userCategories(r.Context(), currentActor(r).ID)
+	list, defaults, err := h.userCategories(r.Context(), settingsUserID(r))
 	if err != nil {
 		apiError(w, err)
 		return
@@ -67,12 +67,12 @@ func (h *Handler) apiUpdateUserCategories(w http.ResponseWriter, r *http.Request
 		jsonError(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	userID := currentActor(r).ID
+	userID := settingsUserID(r)
 	if err := h.users.UpdateCategories(r.Context(), userID, list); err != nil {
 		apiError(w, err)
 		return
 	}
-	h.audit.Log(userID, "categories.update", userID, map[string]string{"count": strconv.Itoa(len(list))})
+	h.auditSettings(r, "categories.update", userID, map[string]string{"count": strconv.Itoa(len(list))})
 	h.workspaceChanged(r, "categories.updated", userID, nil)
 	jsonResponse(w, http.StatusOK, categoriesResponse{Categories: list})
 }

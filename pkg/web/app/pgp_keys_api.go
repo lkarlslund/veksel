@@ -51,7 +51,7 @@ func (h *Handler) registerPGPKeyRoutes(api apiRouter) {
 // ownIdentity reports whether address is one of the caller's enabled
 // identities; only those can publish a key.
 func (h *Handler) ownIdentity(r *http.Request, address string) (bool, error) {
-	identities, err := h.users.ListEmailAddressesForUser(r.Context(), currentActor(r).ID)
+	identities, err := h.users.ListEmailAddressesForUser(r.Context(), settingsUserID(r))
 	if err != nil && !errors.Is(err, store.ErrNotFound) {
 		return false, err
 	}
@@ -61,7 +61,7 @@ func (h *Handler) ownIdentity(r *http.Request, address string) (bool, error) {
 }
 
 func (h *Handler) apiUserPGPKeys(w http.ResponseWriter, r *http.Request) {
-	identities, err := h.users.ListEmailAddressesForUser(r.Context(), currentActor(r).ID)
+	identities, err := h.users.ListEmailAddressesForUser(r.Context(), settingsUserID(r))
 	if err != nil && !errors.Is(err, store.ErrNotFound) {
 		apiError(w, err)
 		return
@@ -114,7 +114,7 @@ func (h *Handler) apiUserSetPGPKey(w http.ResponseWriter, r *http.Request) {
 		jsonError(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	key := model.PGPKey{Address: address, UserID: currentActor(r).ID, Fingerprint: parsed.Fingerprint, Created: parsed.Created,
+	key := model.PGPKey{Address: address, UserID: settingsUserID(r), Fingerprint: parsed.Fingerprint, Created: parsed.Created,
 		Expires: parsed.Expires, Binary: parsed.Binary}
 	if existing, err := h.ts.PGPKeyStore().Get(r.Context(), address); err == nil {
 		key.Autocrypt = existing.Autocrypt
@@ -126,7 +126,7 @@ func (h *Handler) apiUserSetPGPKey(w http.ResponseWriter, r *http.Request) {
 		apiError(w, err)
 		return
 	}
-	h.audit.Log(key.UserID, "pgp_key.set", address, map[string]string{"fingerprint": key.Fingerprint})
+	h.auditSettings(r, "pgp_key.set", address, map[string]string{"fingerprint": key.Fingerprint})
 	stored, err := h.ts.PGPKeyStore().Get(r.Context(), address)
 	if err != nil {
 		apiError(w, err)
@@ -145,7 +145,7 @@ func (h *Handler) apiUserUpdatePGPKey(w http.ResponseWriter, r *http.Request) {
 	}
 	address := strings.ToLower(strings.TrimSpace(r.PathValue("address")))
 	key, err := h.ts.PGPKeyStore().Get(r.Context(), address)
-	if err != nil || key.UserID != currentActor(r).ID {
+	if err != nil || key.UserID != settingsUserID(r) {
 		jsonError(w, http.StatusNotFound, "not found")
 		return
 	}
@@ -156,14 +156,14 @@ func (h *Handler) apiUserUpdatePGPKey(w http.ResponseWriter, r *http.Request) {
 		apiError(w, err)
 		return
 	}
-	h.audit.Log(key.UserID, "pgp_key.update", address, nil)
+	h.auditSettings(r, "pgp_key.update", address, nil)
 	jsonResponse(w, http.StatusOK, projectPGPKey(address, &key, time.Now()))
 }
 
 func (h *Handler) apiUserDeletePGPKey(w http.ResponseWriter, r *http.Request) {
 	address := strings.ToLower(strings.TrimSpace(r.PathValue("address")))
 	key, err := h.ts.PGPKeyStore().Get(r.Context(), address)
-	if err != nil || key.UserID != currentActor(r).ID {
+	if err != nil || key.UserID != settingsUserID(r) {
 		jsonError(w, http.StatusNotFound, "not found")
 		return
 	}
@@ -171,6 +171,6 @@ func (h *Handler) apiUserDeletePGPKey(w http.ResponseWriter, r *http.Request) {
 		apiError(w, err)
 		return
 	}
-	h.audit.Log(key.UserID, "pgp_key.delete", address, nil)
+	h.auditSettings(r, "pgp_key.delete", address, nil)
 	w.WriteHeader(http.StatusNoContent)
 }

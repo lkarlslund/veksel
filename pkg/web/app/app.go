@@ -1041,7 +1041,13 @@ func (h *Handler) render(w http.ResponseWriter, name string, data map[string]any
 	if session, ok := data["Session"].(model.Session); ok {
 		data["ActorName"], data["SubjectName"] = h.displayName(session.ActorID), h.displayName(session.SubjectID)
 		if name == "app.gohtml" {
-			data["Preferences"] = h.clientPreferences(context.Background(), session.ActorID)
+			owner := session.ActorID
+			if session.ActingMode == string(authz.ActingImpersonation) && session.SubjectID != "" {
+				// Support access shows the supported account's preferences,
+				// the ones its settings pages change.
+				owner = session.SubjectID
+			}
+			data["Preferences"] = h.clientPreferences(context.Background(), owner)
 		}
 	}
 	var body bytes.Buffer
