@@ -40,10 +40,6 @@ func (h *Handler) handleUserSettings(w http.ResponseWriter, r *http.Request) {
 		section = "migration"
 	}
 	session, _ := sessionFromContext(r.Context())
-	if supportAccess(r) && supportAccessSections[section] {
-		http.Redirect(w, r, "/app/settings/profile", http.StatusFound)
-		return
-	}
 	scope := h.adminScopeFor(r.Context(), session.ActorID)
 	h.render(w, "app.gohtml", map[string]any{
 		"Page": "settings", "SettingsSection": section, "Session": session, "SupportAccess": supportAccess(r),

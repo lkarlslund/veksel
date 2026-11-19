@@ -39,7 +39,7 @@ func describeSyncJob(job migration.Job) syncJobResponse {
 
 func (h *Handler) apiMigrations(w http.ResponseWriter, r *http.Request) {
 	actor := currentActor(r).ID
-	owner := actor
+	owner := settingsUserID(r)
 	if h.isAdmin(r.Context(), actor) && r.URL.Query().Get("all") == "true" {
 		owner = ""
 	}
@@ -130,7 +130,7 @@ func (h *Handler) apiCreateMigration(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	job, err := h.migrationJobs.Create(r.Context(), migration.Job{
-		OwnerID: actor, DestinationID: destination, SourceType: request.SourceType,
+		OwnerID: settingsUserID(r), DestinationID: destination, SourceType: request.SourceType,
 		SourceIdentity:       strings.TrimSpace(request.SourceIdentity),
 		Connection:           migration.NewConnectionProfile(request.Connection),
 		SelectedFolderIDs:    request.FolderIDs,
@@ -534,7 +534,7 @@ func (h *Handler) authorizedMigration(w http.ResponseWriter, r *http.Request, id
 		return migration.Job{}, false
 	}
 	actor := currentActor(r).ID
-	if job.OwnerID != actor && !h.isAdmin(r.Context(), actor) {
+	if job.OwnerID != settingsUserID(r) && !h.isAdmin(r.Context(), actor) {
 		jsonError(w, http.StatusForbidden, "forbidden")
 		return migration.Job{}, false
 	}

@@ -38,7 +38,7 @@ func projectUserAppPassword(password model.AppPassword, secret string) userAppPa
 }
 
 func (h *Handler) apiUserAppPasswords(w http.ResponseWriter, r *http.Request) {
-	passwords, err := h.appPasswords.ListByUser(r.Context(), currentActor(r).ID)
+	passwords, err := h.appPasswords.ListByUser(r.Context(), settingsUserID(r))
 	if err != nil {
 		apiError(w, err)
 		return
@@ -59,12 +59,12 @@ func (h *Handler) apiCreateUserAppPassword(w http.ResponseWriter, r *http.Reques
 		jsonError(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	password, secret, err := h.appPasswords.Create(r.Context(), currentActor(r).ID, request.Name, request.Protocols)
+	password, secret, err := h.appPasswords.Create(r.Context(), settingsUserID(r), request.Name, request.Protocols)
 	if err != nil {
 		jsonError(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	h.audit.Log(currentActor(r).ID, "app_password.create", password.ID, map[string]string{"name": password.Name, "protocols": strings.Join(password.Protocols, ",")})
+	h.auditSettings(r, "app_password.create", password.ID, map[string]string{"name": password.Name, "protocols": strings.Join(password.Protocols, ",")})
 	jsonResponse(w, http.StatusCreated, projectUserAppPassword(*password, secret))
 }
 
@@ -78,7 +78,7 @@ func (h *Handler) ownedAppPassword(w http.ResponseWriter, r *http.Request) (*mod
 		apiError(w, err)
 		return nil, false
 	}
-	if password.UserID != currentActor(r).ID {
+	if password.UserID != settingsUserID(r) {
 		jsonError(w, http.StatusForbidden, "forbidden")
 		return nil, false
 	}
@@ -99,7 +99,7 @@ func (h *Handler) apiRotateUserAppPassword(w http.ResponseWriter, r *http.Reques
 		apiError(w, err)
 		return
 	}
-	h.audit.Log(currentActor(r).ID, "app_password.rotate", password.ID, map[string]string{
+	h.auditSettings(r, "app_password.rotate", password.ID, map[string]string{
 		"name": rotated.Name, "protocols": strings.Join(rotated.Protocols, ","), "rotation_count": strconv.Itoa(rotated.RotationCount),
 	})
 	jsonResponse(w, http.StatusOK, projectUserAppPassword(*rotated, secret))
@@ -114,6 +114,6 @@ func (h *Handler) apiDeleteUserAppPassword(w http.ResponseWriter, r *http.Reques
 		apiError(w, err)
 		return
 	}
-	h.audit.Log(currentActor(r).ID, "app_password.revoke", password.ID, map[string]string{"name": password.Name, "protocols": strings.Join(password.Protocols, ",")})
+	h.auditSettings(r, "app_password.revoke", password.ID, map[string]string{"name": password.Name, "protocols": strings.Join(password.Protocols, ",")})
 	w.WriteHeader(http.StatusNoContent)
 }

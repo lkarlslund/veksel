@@ -893,7 +893,7 @@ func (h *Handler) requireStepUp(w http.ResponseWriter, r *http.Request) bool {
 // requireStepUpIfEnrolled guards enrolling another factor: the first factor
 // of an account needs no step-up, since nothing is weakened.
 func (h *Handler) requireStepUpIfEnrolled(w http.ResponseWriter, r *http.Request) bool {
-	factors, err := h.secondFactors.Get(r.Context(), currentActor(r).ID)
+	factors, err := h.secondFactors.Get(r.Context(), settingsUserID(r))
 	if err != nil {
 		apiError(w, err)
 		return false
@@ -949,7 +949,7 @@ func (h *Handler) twoFactorStatus(ctx context.Context, userID string) (twoFactor
 }
 
 func (h *Handler) apiUserTwoFactor(w http.ResponseWriter, r *http.Request) {
-	view, err := h.twoFactorStatus(r.Context(), currentActor(r).ID)
+	view, err := h.twoFactorStatus(r.Context(), settingsUserID(r))
 	if err != nil {
 		apiError(w, err)
 		return
@@ -961,7 +961,7 @@ func (h *Handler) apiBeginUserTOTP(w http.ResponseWriter, r *http.Request) {
 	if !h.requireStepUpIfEnrolled(w, r) {
 		return
 	}
-	enrolment, err := h.beginTOTPEnrolment(r, currentActor(r).ID)
+	enrolment, err := h.beginTOTPEnrolment(r, settingsUserID(r))
 	if err != nil {
 		apiError(w, err)
 		return
@@ -977,7 +977,7 @@ func (h *Handler) apiConfirmUserTOTP(w http.ResponseWriter, r *http.Request) {
 		jsonError(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	codes, err := h.confirmTOTPEnrolment(r.Context(), currentActor(r).ID, request.Code)
+	codes, err := h.confirmTOTPEnrolment(r.Context(), settingsUserID(r), request.Code)
 	if err != nil {
 		twoFactorAPIError(w, err)
 		return
@@ -989,7 +989,7 @@ func (h *Handler) apiDeleteUserTOTP(w http.ResponseWriter, r *http.Request) {
 	if !h.requireStepUp(w, r) {
 		return
 	}
-	userID := currentActor(r).ID
+	userID := settingsUserID(r)
 	if err := h.removeSecondFactor(r.Context(), userID, func(factors *model.SecondFactors) bool {
 		removed := factors.TOTP != nil
 		factors.TOTP = nil
@@ -1006,7 +1006,7 @@ func (h *Handler) apiRegenerateRecoveryCodes(w http.ResponseWriter, r *http.Requ
 	if !h.requireStepUp(w, r) {
 		return
 	}
-	userID := currentActor(r).ID
+	userID := settingsUserID(r)
 	var codes []string
 	_, err := h.secondFactors.Update(r.Context(), userID, func(factors *model.SecondFactors) error {
 		if !factors.Enabled() {
@@ -1029,7 +1029,7 @@ func (h *Handler) apiUserWebAuthnOptions(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	session, _ := sessionFromContext(r.Context())
-	options, err := h.beginWebAuthnRegistration(r, session.ID, session.ActorID)
+	options, err := h.beginWebAuthnRegistration(r, session.ID, settingsUserID(r))
 	if err != nil {
 		twoFactorAPIError(w, err)
 		return
@@ -1047,7 +1047,7 @@ func (h *Handler) apiRegisterUserWebAuthn(w http.ResponseWriter, r *http.Request
 		return
 	}
 	session, _ := sessionFromContext(r.Context())
-	codes, err := h.finishWebAuthnRegistration(r, session.ID, session.ActorID, request.Name, request.Credential)
+	codes, err := h.finishWebAuthnRegistration(r, session.ID, settingsUserID(r), request.Name, request.Credential)
 	if err != nil {
 		twoFactorAPIError(w, err)
 		return
@@ -1069,7 +1069,7 @@ func (h *Handler) apiRenameUserWebAuthn(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	id := r.PathValue("id")
-	_, err := h.secondFactors.Update(r.Context(), currentActor(r).ID, func(factors *model.SecondFactors) error {
+	_, err := h.secondFactors.Update(r.Context(), settingsUserID(r), func(factors *model.SecondFactors) error {
 		for i := range factors.WebAuthn {
 			if factors.WebAuthn[i].ID == id {
 				factors.WebAuthn[i].Name = name
@@ -1089,7 +1089,7 @@ func (h *Handler) apiDeleteUserWebAuthn(w http.ResponseWriter, r *http.Request) 
 	if !h.requireStepUp(w, r) {
 		return
 	}
-	userID, id := currentActor(r).ID, r.PathValue("id")
+	userID, id := settingsUserID(r), r.PathValue("id")
 	if err := h.removeSecondFactor(r.Context(), userID, func(factors *model.SecondFactors) bool {
 		before := len(factors.WebAuthn)
 		factors.WebAuthn = slices.DeleteFunc(factors.WebAuthn, func(key model.WebAuthnFactor) bool { return key.ID == id })

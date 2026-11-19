@@ -5,11 +5,15 @@ import (
 	"net/http"
 	"strings"
 	"testing"
+	"time"
+
+	"github.com/lkarlslund/veksel/pkg/audit"
+	"github.com/lkarlslund/veksel/pkg/model"
 )
 
-// Support access shows and changes the supported account's personal
-// settings, never the administrator's, and keeps their credentials,
-// sharing and synchronization out of reach.
+// Support access shows and changes every setting of the supported
+// account, never the administrator's, and audits changes under the
+// administrator.
 func TestSupportAccessSettingsAreTheSupportedAccounts(t *testing.T) {
 	server, ts := testApp(t)
 	client := testClient(t)
@@ -38,30 +42,44 @@ func TestSupportAccessSettingsAreTheSupportedAccounts(t *testing.T) {
 	if status, body := call(http.MethodPatch, "/api/v1/user/profile", `{"current_password":"password123","new_password":"another-password"}`); status != http.StatusForbidden {
 		t.Fatalf("password change during support access status=%d body=%s", status, body)
 	}
-	for _, path := range []string{"/api/v1/user/app-passwords", "/api/v1/user/api-keys", "/api/v1/user/two-factor", "/api/v1/user/browser-sessions", "/api/v1/user/webhooks", "/api/v1/grants", "/api/v1/share-links", "/api/v1/sync-jobs", "/api/v1/user/export"} {
-		if status, body := call(http.MethodGet, path, ""); status != http.StatusForbidden || !strings.Contains(body, "support access") {
+	for _, path := range []string{"/api/v1/user/app-passwords", "/api/v1/user/api-keys", "/api/v1/user/two-factor", "/api/v1/user/browser-sessions", "/api/v1/grants", "/api/v1/share-links", "/api/v1/sync-jobs"} {
+		if status, body := call(http.MethodGet, path, ""); status != http.StatusOK {
 			t.Errorf("GET %s during support access status=%d body=%s", path, status, body)
 		}
 	}
-	pages := testClient(t)
-	pages.Jar = client.Jar
-	pages.CheckRedirect = func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
-	resp, err := pages.Get(server.URL + "/app/settings/app-passwords")
+	if status, body := call(http.MethodPost, "/api/v1/user/app-passwords", `{"name":"Phone","protocols":["imap"]}`); status != http.StatusCreated && status != http.StatusOK {
+		t.Fatalf("create application password status=%d body=%s", status, body)
+	}
+	bobPasswords, err := model.NewAppPasswordStore(ts).ListByUser(t.Context(), "bob")
+	if err != nil || len(bobPasswords) != 1 {
+		t.Fatalf("bob's application passwords = %d (err %v), want the one created during support access", len(bobPasswords), err)
+	}
+	if alicePasswords, _ := model.NewAppPasswordStore(ts).ListByUser(t.Context(), "alice"); len(alicePasswords) != 0 {
+		t.Fatalf("the administrator got %d application passwords", len(alicePasswords))
+	}
+	records, err := audit.New(ts).Query(t.Context(), time.Time{}, "support_access.request", "alice", 100)
 	if err != nil {
 		t.Fatal(err)
 	}
-	_ = resp.Body.Close()
-	if resp.StatusCode != http.StatusFound || resp.Header.Get("Location") != "/app/settings/profile" {
-		t.Fatalf("refused settings page status=%d location=%q", resp.StatusCode, resp.Header.Get("Location"))
+	audited := false
+	for _, record := range records {
+		if record.Target == "bob" && record.Details["route"] == "/api/v1/user/app-passwords" {
+			audited = true
+		}
 	}
-	resp, err = pages.Get(server.URL + "/app/settings/profile")
+	if !audited {
+		t.Fatal("the change made during support access is not audited under the administrator")
+	}
+	pages := testClient(t)
+	pages.Jar = client.Jar
+	resp, err := pages.Get(server.URL + "/app/settings/profile")
 	if err != nil {
 		t.Fatal(err)
 	}
 	page, _ := io.ReadAll(resp.Body)
 	_ = resp.Body.Close()
-	if !strings.Contains(string(page), "Support access") || strings.Contains(string(page), `href="/app/settings/app-passwords"`) {
-		t.Fatal("the settings page neither names support access nor hides the administrator-only sections")
+	if !strings.Contains(string(page), "Support access") || !strings.Contains(string(page), `href="/app/settings/app-passwords"`) {
+		t.Fatal("the settings page does not name support access or list every section")
 	}
 
 	bob, err := ts.UserStore().Get(t.Context(), "bob")

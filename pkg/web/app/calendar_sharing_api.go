@@ -381,7 +381,7 @@ func (h *Handler) apiWorkspaceCalendarSharing(w http.ResponseWriter, r *http.Req
 		apiError(w, err)
 		return
 	}
-	grants, err := h.authorization.ListFolderGrants(r.Context(), currentActor(r), folder.ID)
+	grants, err := h.authorization.ListFolderGrants(r.Context(), settingsPrincipal(r), folder.ID)
 	if err != nil {
 		apiError(w, err)
 		return
@@ -397,7 +397,7 @@ func (h *Handler) apiWorkspaceCalendarSharing(w http.ResponseWriter, r *http.Req
 		}
 		view.Shares = append(view.Shares, h.describeCalendarShare(r.Context(), grant))
 	}
-	links, err := h.shareLinks.List(r.Context(), currentActor(r))
+	links, err := h.shareLinks.List(r.Context(), settingsPrincipal(r))
 	if err != nil {
 		apiError(w, err)
 		return
@@ -528,7 +528,7 @@ func (h *Handler) apiWorkspaceShareCalendar(w http.ResponseWriter, r *http.Reque
 		jsonError(w, http.StatusBadRequest, "the calendar already belongs to "+request.Recipient)
 		return
 	}
-	actor := currentActor(r)
+	actor := settingsPrincipal(r)
 	existing, err := h.authorization.ListFolderGrants(r.Context(), actor, folder.ID)
 	if err != nil {
 		apiError(w, err)
@@ -557,7 +557,7 @@ func (h *Handler) apiWorkspaceUnshareCalendar(w http.ResponseWriter, r *http.Req
 		apiError(w, err)
 		return
 	}
-	if err := h.authorization.DeleteFolderGrant(r.Context(), currentActor(r), folder.ID, r.PathValue("grantID")); err != nil {
+	if err := h.authorization.DeleteFolderGrant(r.Context(), settingsPrincipal(r), folder.ID, r.PathValue("grantID")); err != nil {
 		apiError(w, err)
 		return
 	}
@@ -576,7 +576,7 @@ func (h *Handler) apiWorkspacePublishCalendar(w http.ResponseWriter, r *http.Req
 		jsonError(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	issued, err := h.shareLinks.Create(r.Context(), currentActor(r), sharing.CreateRequest{TargetKind: sharing.TargetFolder, FolderID: r.PathValue("id"), Access: sharing.AccessRead, Publish: request.Format, ExpiresAt: request.ExpiresAt})
+	issued, err := h.shareLinks.Create(r.Context(), settingsPrincipal(r), sharing.CreateRequest{TargetKind: sharing.TargetFolder, FolderID: r.PathValue("id"), Access: sharing.AccessRead, Publish: request.Format, ExpiresAt: request.ExpiresAt})
 	if errors.Is(err, sharing.ErrInvalidInput) {
 		jsonError(w, http.StatusBadRequest, err.Error())
 		return

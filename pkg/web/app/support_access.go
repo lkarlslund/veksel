@@ -3,18 +3,17 @@ package app
 import (
 	"maps"
 	"net/http"
-	"strings"
+	"strconv"
 
 	"github.com/lkarlslund/veksel/pkg/authz"
+	"github.com/lkarlslund/veksel/pkg/model"
 )
 
-// Support access (impersonation) lets an administrator work as a user to
-// help them: the user's mailbox and the user's personal settings. It does
-// not reach the user's credentials, sign-in sessions, sharing grants,
-// webhooks, synchronization jobs or account export, which could outlive the
-// 15-minute session or hand the administrator lasting access; those routes
-// refuse while it is active. A delegate working in another mailbox keeps
-// their own settings.
+// Support access (impersonation) lets an administrator work as a user: the
+// user's mailbox and every user setting, including credentials, sessions,
+// sharing, webhooks and synchronization. Every change is audited under the
+// administrator. A delegate working in another mailbox keeps their own
+// settings.
 
 func supportAccess(r *http.Request) bool {
 	return currentActingMode(r) == authz.ActingImpersonation
@@ -42,48 +41,45 @@ func onBehalf(r *http.Request, details map[string]string) map[string]string {
 	return out
 }
 
-// supportAccessExcludedPrefixes are the routes support access refuses.
-var supportAccessExcludedPrefixes = []string{
-	"/api/v1/user/two-factor",
-	"/api/v1/user/browser-sessions",
-	"/api/v1/user/app-passwords",
-	"/api/v1/user/api-keys",
-	"/api/v1/user/webhooks",
-	"/api/v1/user/export",
-	"/api/v1/user/mobileconfig",
-	"/api/v1/grants",
-	"/api/v1/folders/{id}/grants",
-	"/api/v1/identities/{id}/grants",
-	"/api/v1/share-links",
-	"/api/v1/sync-jobs",
+// settingsPrincipal is settingsUserID as a principal, for services that
+// act on behalf of one account.
+func settingsPrincipal(r *http.Request) model.PrincipalRef {
+	return model.PrincipalRef{Kind: model.PrincipalUser, ID: settingsUserID(r)}
 }
 
-func supportAccessExcluded(method, path string) bool {
-	if method == http.MethodPost && path == "/api/v1/user/eas-devices/{id}/wipe" {
-		return true
-	}
-	for _, prefix := range supportAccessExcludedPrefixes {
-		if path == prefix || strings.HasPrefix(path, prefix+"/") {
-			return true
-		}
-	}
-	return false
-}
-
-// supportAccessSections are the settings pages of routes it refuses.
-var supportAccessSections = map[string]bool{
-	"two-factor": true, "sessions": true, "app-passwords": true, "api-keys": true, "webhooks": true,
-	"access": true, "delegation": true, "share-links": true, "migration": true,
-}
-
-func refuseDuringSupportAccess(next http.Handler) http.Handler {
+// auditSupportAccess records every changing API request made during support
+// access under the administrator, naming the supported account, the route
+// and the outcome. Handlers that audit under the account they act on stay
+// attributable to the person who made the change.
+func (h *Handler) auditSupportAccess(route apiRoute, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if supportAccess(r) {
-			jsonError(w, http.StatusForbidden, "not available during support access; return to your account to use it")
+		if !supportAccess(r) {
+			next.ServeHTTP(w, r)
 			return
 		}
-		next.ServeHTTP(w, r)
+		recorder := &statusRecorder{ResponseWriter: w, status: http.StatusOK}
+		next.ServeHTTP(recorder, r)
+		h.audit.Log(currentActor(r).ID, "support_access.request", currentSubject(r).ID, map[string]string{
+			"method": route.Method, "route": route.Path, "status": strconv.Itoa(recorder.status), "reason": currentActingReason(r),
+		})
 	})
+}
+
+type statusRecorder struct {
+	http.ResponseWriter
+	status int
+}
+
+func (s *statusRecorder) WriteHeader(status int) {
+	s.status = status
+	s.ResponseWriter.WriteHeader(status)
+}
+
+func (s *statusRecorder) Unwrap() http.ResponseWriter { return s.ResponseWriter }
+
+func currentActingReason(r *http.Request) string {
+	session, _ := sessionFromContext(r.Context())
+	return session.ActingReason
 }
 
 // auditSettings records a personal-settings change under the signed-in

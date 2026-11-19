@@ -38,7 +38,7 @@ func projectUserAPIKey(key model.APIKey, secret string) userAPIKeyView {
 }
 
 func (h *Handler) apiUserAPIKeys(w http.ResponseWriter, r *http.Request) {
-	keys, err := h.apiKeys.ListByUser(r.Context(), currentActor(r).ID)
+	keys, err := h.apiKeys.ListByUser(r.Context(), settingsUserID(r))
 	if err != nil {
 		apiError(w, err)
 		return
@@ -76,12 +76,12 @@ func (h *Handler) apiCreateUserAPIKey(w http.ResponseWriter, r *http.Request) {
 		jsonError(w, status, message)
 		return
 	}
-	key, secret, err := h.apiKeys.CreateWithScopes(r.Context(), currentActor(r).ID, request.Name, scopes)
+	key, secret, err := h.apiKeys.CreateWithScopes(r.Context(), settingsUserID(r), request.Name, scopes)
 	if err != nil {
 		apiError(w, err)
 		return
 	}
-	h.audit.Log(currentActor(r).ID, "api_key.create", key.ID, map[string]string{"scopes": strings.Join(key.Scopes, ","), "name": request.Name})
+	h.auditSettings(r, "api_key.create", key.ID, map[string]string{"scopes": strings.Join(key.Scopes, ","), "name": request.Name})
 	jsonResponse(w, http.StatusCreated, projectUserAPIKey(*key, secret))
 }
 
@@ -94,7 +94,7 @@ func (h *Handler) checkRequestedAPIKeyScopes(r *http.Request, scopes []string) (
 		switch scope {
 		case model.APIKeyScopeMCPRead, model.APIKeyScopeMCPWrite:
 		case model.APIKeyScopeAPIRead, model.APIKeyScopeAPIWrite, model.APIKeyScopeKeysManage, model.APIKeyScopeAll:
-			if !h.isAdmin(r.Context(), currentActor(r).ID) {
+			if !h.isAdmin(r.Context(), settingsUserID(r)) {
 				return http.StatusForbidden, "REST API scopes require a system administrator"
 			}
 		default:
@@ -117,7 +117,7 @@ func (h *Handler) apiRotateUserAPIKey(w http.ResponseWriter, r *http.Request) {
 		apiError(w, err)
 		return
 	}
-	if key.UserID != currentActor(r).ID {
+	if key.UserID != settingsUserID(r) {
 		jsonError(w, http.StatusForbidden, "forbidden")
 		return
 	}
@@ -134,7 +134,7 @@ func (h *Handler) apiRotateUserAPIKey(w http.ResponseWriter, r *http.Request) {
 		apiError(w, err)
 		return
 	}
-	h.audit.Log(currentActor(r).ID, "api_key.rotate", key.ID, map[string]string{
+	h.auditSettings(r, "api_key.rotate", key.ID, map[string]string{
 		"scopes": strings.Join(rotated.Scopes, ","), "name": rotated.Name,
 		"rotation_count": strconv.Itoa(rotated.RotationCount),
 	})
@@ -151,7 +151,7 @@ func (h *Handler) apiDeleteUserAPIKey(w http.ResponseWriter, r *http.Request) {
 		apiError(w, err)
 		return
 	}
-	if key.UserID != currentActor(r).ID {
+	if key.UserID != settingsUserID(r) {
 		jsonError(w, http.StatusForbidden, "forbidden")
 		return
 	}
@@ -159,6 +159,6 @@ func (h *Handler) apiDeleteUserAPIKey(w http.ResponseWriter, r *http.Request) {
 		apiError(w, err)
 		return
 	}
-	h.audit.Log(currentActor(r).ID, "api_key.revoke", key.ID, map[string]string{"scopes": strings.Join(key.Scopes, ",")})
+	h.auditSettings(r, "api_key.revoke", key.ID, map[string]string{"scopes": strings.Join(key.Scopes, ",")})
 	w.WriteHeader(http.StatusNoContent)
 }

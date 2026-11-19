@@ -67,14 +67,13 @@ Account delegation and administrative impersonation are deliberately separate:
   explicit deny. Revocation returns an active session to its actor.
 - Impersonation requires `account.impersonate`, the administrator's password,
   a recorded reason, and has a maximum 15-minute lifetime. It reaches the
-  account's mailbox and personal settings (profile name, identities and
-  signatures, auto-reply, rules, categories, templates, saved searches,
-  aliases, encryption keys, devices, notifications, display). The account's
-  password, two-factor methods, web sessions, application passwords, API
-  keys, webhooks, grants, share links, synchronization jobs, account export
-  and remote device wipe answer `403` until the administrator returns to
-  their own account, so nothing set up during support outlives it. A
-  delegate keeps their own settings while working in another mailbox.
+  account's mailbox and every user setting (profile, two-factor methods, web
+  sessions, application passwords, API keys, webhooks, identities, rules,
+  sharing, synchronization jobs, export) as that account; only its password
+  change still needs the account's current password. Every changing request
+  is audited as `support_access.request` under the administrator with the
+  account, route, status and reason. A delegate keeps their own settings
+  while working in another mailbox.
 - Sessions always persist both immutable `actor_id` and effective `subject_id`.
   Audit records retain the actor; changing the subject never changes who is
   accountable for the operation.

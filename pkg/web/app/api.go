@@ -2698,7 +2698,7 @@ func (h *Handler) apiSetGroup(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) apiManagedGrants(w http.ResponseWriter, r *http.Request) {
-	grants, err := h.authorization.ListManagedGrants(r.Context(), currentActor(r))
+	grants, err := h.authorization.ListManagedGrants(r.Context(), settingsPrincipal(r))
 	if err != nil {
 		apiError(w, err)
 		return
@@ -2707,7 +2707,7 @@ func (h *Handler) apiManagedGrants(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) apiManagedGrant(w http.ResponseWriter, r *http.Request) {
-	grant, err := h.authorization.GetManagedGrant(r.Context(), currentActor(r), r.PathValue("id"))
+	grant, err := h.authorization.GetManagedGrant(r.Context(), settingsPrincipal(r), r.PathValue("id"))
 	if err != nil {
 		apiError(w, err)
 		return
@@ -2721,7 +2721,7 @@ func (h *Handler) apiUpdateManagedGrant(w http.ResponseWriter, r *http.Request) 
 		jsonError(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	grant, err := h.authorization.UpdateManagedGrant(r.Context(), currentActor(r), r.PathValue("id"), update)
+	grant, err := h.authorization.UpdateManagedGrant(r.Context(), settingsPrincipal(r), r.PathValue("id"), update)
 	if err != nil {
 		apiError(w, err)
 		return
@@ -2730,7 +2730,7 @@ func (h *Handler) apiUpdateManagedGrant(w http.ResponseWriter, r *http.Request) 
 }
 
 func (h *Handler) apiManagedGrantEffectiveAccess(w http.ResponseWriter, r *http.Request) {
-	effective, err := h.authorization.EffectiveManagedGrant(r.Context(), currentActor(r), r.PathValue("id"), time.Now().UTC())
+	effective, err := h.authorization.EffectiveManagedGrant(r.Context(), settingsPrincipal(r), r.PathValue("id"), time.Now().UTC())
 	if err != nil {
 		apiError(w, err)
 		return
@@ -2739,7 +2739,7 @@ func (h *Handler) apiManagedGrantEffectiveAccess(w http.ResponseWriter, r *http.
 }
 
 func (h *Handler) apiDeleteManagedGrant(w http.ResponseWriter, r *http.Request) {
-	if err := h.authorization.DeleteManagedGrant(r.Context(), currentActor(r), r.PathValue("id")); err != nil {
+	if err := h.authorization.DeleteManagedGrant(r.Context(), settingsPrincipal(r), r.PathValue("id")); err != nil {
 		apiError(w, err)
 		return
 	}
@@ -2747,7 +2747,7 @@ func (h *Handler) apiDeleteManagedGrant(w http.ResponseWriter, r *http.Request) 
 }
 
 func (h *Handler) apiFolderGrants(w http.ResponseWriter, r *http.Request) {
-	grants, err := h.authorization.ListFolderGrants(r.Context(), currentActor(r), r.PathValue("id"))
+	grants, err := h.authorization.ListFolderGrants(r.Context(), settingsPrincipal(r), r.PathValue("id"))
 	if err != nil {
 		apiError(w, err)
 		return
@@ -2763,7 +2763,7 @@ func (h *Handler) apiCreateFolderGrant(w http.ResponseWriter, r *http.Request) {
 	}
 	binding.ID = ""
 	binding.Resource = model.ResourceRef{Kind: model.ResourceFolder, ID: r.PathValue("id")}
-	created, err := h.authorization.CreateFolderGrant(r.Context(), currentActor(r), binding)
+	created, err := h.authorization.CreateFolderGrant(r.Context(), settingsPrincipal(r), binding)
 	if err != nil {
 		apiError(w, err)
 		return
@@ -2772,7 +2772,7 @@ func (h *Handler) apiCreateFolderGrant(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) apiDeleteFolderGrant(w http.ResponseWriter, r *http.Request) {
-	err := h.authorization.DeleteFolderGrant(r.Context(), currentActor(r), r.PathValue("id"), r.PathValue("grantID"))
+	err := h.authorization.DeleteFolderGrant(r.Context(), settingsPrincipal(r), r.PathValue("id"), r.PathValue("grantID"))
 	if err != nil {
 		apiError(w, err)
 		return
@@ -2781,7 +2781,7 @@ func (h *Handler) apiDeleteFolderGrant(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) apiIdentityGrants(w http.ResponseWriter, r *http.Request) {
-	grants, err := h.authorization.ListIdentityGrants(r.Context(), currentActor(r), r.PathValue("id"))
+	grants, err := h.authorization.ListIdentityGrants(r.Context(), settingsPrincipal(r), r.PathValue("id"))
 	if err != nil {
 		apiError(w, err)
 		return
@@ -2797,7 +2797,7 @@ func (h *Handler) apiCreateIdentityGrant(w http.ResponseWriter, r *http.Request)
 	}
 	binding.ID = ""
 	binding.Resource = model.ResourceRef{Kind: model.ResourceIdentity, ID: r.PathValue("id")}
-	created, err := h.authorization.CreateIdentityGrant(r.Context(), currentActor(r), binding)
+	created, err := h.authorization.CreateIdentityGrant(r.Context(), settingsPrincipal(r), binding)
 	if err != nil {
 		apiError(w, err)
 		return
@@ -2806,7 +2806,7 @@ func (h *Handler) apiCreateIdentityGrant(w http.ResponseWriter, r *http.Request)
 }
 
 func (h *Handler) apiDeleteIdentityGrant(w http.ResponseWriter, r *http.Request) {
-	if err := h.authorization.DeleteIdentityGrant(r.Context(), currentActor(r), r.PathValue("id"), r.PathValue("grantID")); err != nil {
+	if err := h.authorization.DeleteIdentityGrant(r.Context(), settingsPrincipal(r), r.PathValue("id"), r.PathValue("grantID")); err != nil {
 		apiError(w, err)
 		return
 	}

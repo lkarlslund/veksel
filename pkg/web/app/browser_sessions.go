@@ -37,7 +37,7 @@ func projectBrowserSession(session model.Session, currentID string) browserSessi
 
 func (h *Handler) apiUserBrowserSessions(w http.ResponseWriter, r *http.Request) {
 	current, _ := sessionFromContext(r.Context())
-	sessions, err := h.sessions.ListByActor(r.Context(), current.ActorID)
+	sessions, err := h.sessions.ListByActor(r.Context(), settingsUserID(r))
 	if err != nil {
 		apiError(w, err)
 		return
@@ -51,7 +51,7 @@ func (h *Handler) apiUserBrowserSessions(w http.ResponseWriter, r *http.Request)
 
 func (h *Handler) apiDeleteUserBrowserSession(w http.ResponseWriter, r *http.Request) {
 	current, _ := sessionFromContext(r.Context())
-	deleted, err := h.sessions.DeleteOwned(r.Context(), current.ActorID, r.PathValue("id"), current.ID)
+	deleted, err := h.sessions.DeleteOwned(r.Context(), settingsUserID(r), r.PathValue("id"), current.ID)
 	if errors.Is(err, store.ErrNotFound) {
 		jsonError(w, http.StatusNotFound, "browser session not found")
 		return
@@ -64,18 +64,18 @@ func (h *Handler) apiDeleteUserBrowserSession(w http.ResponseWriter, r *http.Req
 		apiError(w, err)
 		return
 	}
-	h.recordBrowserSessionRevocations(current.ActorID, []model.Session{deleted}, "user")
+	h.recordBrowserSessionRevocations(settingsUserID(r), []model.Session{deleted}, "user")
 	w.WriteHeader(http.StatusNoContent)
 }
 
 func (h *Handler) apiDeleteOtherBrowserSessions(w http.ResponseWriter, r *http.Request) {
 	current, _ := sessionFromContext(r.Context())
-	deleted, err := h.sessions.DeleteOthers(r.Context(), current.ActorID, current.ID)
+	deleted, err := h.sessions.DeleteOthers(r.Context(), settingsUserID(r), current.ID)
 	if err != nil {
 		apiError(w, err)
 		return
 	}
-	h.recordBrowserSessionRevocations(current.ActorID, deleted, "user_all_others")
+	h.recordBrowserSessionRevocations(settingsUserID(r), deleted, "user_all_others")
 	jsonResponse(w, http.StatusOK, map[string]int{"revoked": len(deleted)})
 }
 

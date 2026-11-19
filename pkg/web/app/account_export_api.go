@@ -56,7 +56,7 @@ type accountSettingsExportMail struct {
 }
 
 func (h *Handler) apiUserAccountExport(w http.ResponseWriter, r *http.Request) {
-	userID := currentActor(r).ID
+	userID := settingsUserID(r)
 	user, err := h.users.Get(r.Context(), userID)
 	if err != nil {
 		apiError(w, err)

@@ -32,7 +32,7 @@ func (h *Handler) registerPublicShareRoutes(api apiRouter) {
 }
 
 func (h *Handler) apiShareLinks(w http.ResponseWriter, r *http.Request) {
-	links, err := h.shareLinks.List(r.Context(), currentActor(r))
+	links, err := h.shareLinks.List(r.Context(), settingsPrincipal(r))
 	if err != nil {
 		apiError(w, err)
 		return
@@ -46,7 +46,7 @@ func (h *Handler) apiCreateShareLink(w http.ResponseWriter, r *http.Request) {
 		jsonError(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	issued, err := h.shareLinks.Create(r.Context(), currentActor(r), request)
+	issued, err := h.shareLinks.Create(r.Context(), settingsPrincipal(r), request)
 	if err != nil {
 		apiError(w, err)
 		return
@@ -55,7 +55,7 @@ func (h *Handler) apiCreateShareLink(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) apiShareLink(w http.ResponseWriter, r *http.Request) {
-	link, err := h.shareLinks.Get(r.Context(), currentActor(r), r.PathValue("id"))
+	link, err := h.shareLinks.Get(r.Context(), settingsPrincipal(r), r.PathValue("id"))
 	if err != nil {
 		apiError(w, err)
 		return
@@ -64,7 +64,7 @@ func (h *Handler) apiShareLink(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) apiRevokeShareLink(w http.ResponseWriter, r *http.Request) {
-	if _, err := h.shareLinks.Revoke(r.Context(), currentActor(r), r.PathValue("id")); err != nil {
+	if _, err := h.shareLinks.Revoke(r.Context(), settingsPrincipal(r), r.PathValue("id")); err != nil {
 		apiError(w, err)
 		return
 	}
